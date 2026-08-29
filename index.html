@@ -379,14 +379,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-grupos">
-        <div class="painel" style="max-width:480px;margin-bottom:20px;">
-          <h3>Sortear grupos novamente</h3>
-          <div class="msg aviso">Já é feito automaticamente no botão "Sortear tudo" da aba Sorteio. Use isto só se quiser reembaralhar os grupos sem redistribuir os times.</div>
-          <label>Número de grupos</label>
-          <input type="number" id="grupos-numero" value="2" min="1">
-          <button class="btn secondary full" onclick="sortearGrupos()">Sortear grupos</button>
-          <div id="grupos-msg"></div>
-        </div>
+        <div id="grupos-msg"></div>
         <div id="grupos-resultado"></div>
         <div class="divider"></div>
         <h3>Classificação</h3>
@@ -940,7 +933,6 @@ async function salvarSorteio() {
   // ---- esteira automática: grupos + calendário, sem precisar trocar de aba ----
   mostrarMsg('sorteio-msg', 'Times salvos. Sorteando grupos...', 'ok');
   const numGrupos = parseInt(document.getElementById('sorteio-numero-grupos').value, 10) || 1;
-  document.getElementById('grupos-numero').value = numGrupos;
   const okGrupos = await sortearGruposComTimes(timesCriados, numGrupos);
   if (!okGrupos) return;
 
@@ -948,14 +940,6 @@ async function salvarSorteio() {
   await gerarCalendario();
 
   mostrarMsg('sorteio-msg', 'Pronto! Times, grupos e calendário de jogos já estão gerados — confira nas abas Grupos e Jogos.', 'ok');
-}
-
-async function sortearGrupos() {
-  const numGrupos = parseInt(document.getElementById('grupos-numero').value, 10);
-  const { data: times, error } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioAtualId);
-  if (error) { mostrarMsg('grupos-msg', error.message, 'erro'); return; }
-  if (!times || times.length === 0) { mostrarMsg('grupos-msg', 'Sorteie os times primeiro.', 'erro'); return; }
-  await sortearGruposComTimes(times, numGrupos);
 }
 
 async function sortearGruposComTimes(times, numGrupos) {
