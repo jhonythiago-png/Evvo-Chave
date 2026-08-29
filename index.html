@@ -376,6 +376,9 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
             <div id="sorteio-resultado"></div>
           </div>
         </div>
+        <div class="divider"></div>
+        <h3>Times formados</h3>
+        <div id="times-formados-resultado"></div>
       </div>
 
       <div class="pane" id="tab-grupos">
@@ -659,6 +662,7 @@ async function abrirTorneio(id, nome, esporte, status) {
     ['lista de torneios', carregarListaTorneios],
     ['informações', carregarInfoTorneio],
     ['participantes', carregarParticipantes],
+    ['times formados', carregarTimesFormados],
     ['grupos', carregarGrupos],
     ['jogos e classificação', carregarJogosEClassificacao],
     ['mata-mata', carregarMataMata],
@@ -828,15 +832,43 @@ async function montarConteudoPublico(torneio) {
 async function carregarParticipantes() {
   const { data: participantes } = await supabaseClient
     .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('criado_em', { ascending: true });
+  const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
+  const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome;
 
   const tbody = document.querySelector('#tabela-participantes tbody');
   tbody.innerHTML = '';
   (participantes || []).forEach((p) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${p.time_id ? '<span class="pill ativo">Sorteado</span>' : '<span class="pill pendente">Sem time</span>'}</td>`;
+    const statusCell = p.time_id
+      ? `<span class="pill ativo">${nomeTime(p.time_id) || 'Sorteado'}</span>`
+      : '<span class="pill pendente">Sem time</span>';
+    tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${statusCell}</td>`;
     tbody.appendChild(tr);
   });
   return participantes || [];
+}
+
+// Mostra os times já salvos com seus jogadores — recarrega sozinho ao abrir
+// o torneio, então continua visível mesmo depois de sair e voltar da aba.
+async function carregarTimesFormados() {
+  const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, posicao, nivel_tecnico, time_id').eq('torneio_id', torneioAtualId);
+
+  const div = document.getElementById('times-formados-resultado');
+  if (!times || times.length === 0) {
+    div.innerHTML = '<div class="msg aviso">Nenhum time sorteado ainda.</div>';
+    return;
+  }
+
+  let html = '<div class="teams-grid">';
+  times.forEach((t) => {
+    const jogadoresDoTime = (participantes || []).filter((p) => p.time_id === t.id);
+    html += `<div class="team-mini"><div class="team-mini-head"><span>${t.nome}</span><span>${jogadoresDoTime.length} jogador(es)</span></div>`;
+    jogadoresDoTime.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
+    html += '</div>';
+  });
+  html += '</div>';
+  div.innerHTML = html;
 }
 
 async function adicionarParticipante() {
@@ -929,6 +961,7 @@ async function salvarSorteio() {
   document.getElementById('sorteio-resultado').innerHTML = '';
   ultimoResultadoSorteio = null;
   await carregarParticipantes();
+  await carregarTimesFormados();
 
   // ---- esteira automática: grupos + calendário, sem precisar trocar de aba ----
   mostrarMsg('sorteio-msg', 'Times salvos. Sorteando grupos...', 'ok');
