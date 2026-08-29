@@ -84,13 +84,24 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <label>Senha</label>
   <input type="password" id="login-senha" placeholder="••••••••" autocomplete="new-password" name="chave-login-pass">
   <button class="btn" id="btn-login">Entrar</button>
-  <div class="link-toggle" id="toggle-cadastro">Ainda não tem conta? Criar conta</div>
   <div id="login-msg"></div>
 </div>
 
 <!-- CARREGANDO -->
 <div class="card hidden" id="tela-carregando" style="text-align:center;">
   <div class="oswald" style="color:var(--muted);font-size:13px;">Carregando...</div>
+</div>
+
+<!-- TROCA DE SENHA OBRIGATÓRIA -->
+<div class="card hidden" id="tela-trocar-senha">
+  <h2 style="margin-bottom:14px;">Defina sua senha</h2>
+  <div class="msg aviso">Essa é sua senha temporária. Defina uma senha nova antes de continuar.</div>
+  <label>Nova senha</label>
+  <input type="password" id="nova-senha" placeholder="••••••••">
+  <label>Confirme a nova senha</label>
+  <input type="password" id="nova-senha-confirma" placeholder="••••••••">
+  <button class="btn" onclick="trocarSenha()">Salvar e continuar</button>
+  <div id="trocar-senha-msg"></div>
 </div>
 
 <!-- AGUARDANDO LIBERAÇÃO -->
@@ -118,13 +129,14 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <div class="divider"></div>
   <label>Nome do admin responsável</label>
   <input type="text" id="org-admin-nome" placeholder="Nome de quem vai administrar">
-  <label>E-mail do admin (precisa já ter criado conta em "Criar conta")</label>
+  <label>E-mail do admin</label>
   <input type="email" id="org-admin-email" placeholder="admin@organizacao.com">
-  <label>UID do admin (peça para ele te enviar, aparece na tela dele)</label>
-  <input type="text" id="org-admin-uid" placeholder="Ex: 274ceff4-d4d5-...">
   <label>Nome de usuário do admin (login, precisa ser único no sistema)</label>
   <input type="text" id="org-admin-username" placeholder="Ex: joao">
-  <button class="btn" onclick="criarOrganizador()">Criar organizador + vincular admin</button>
+  <label>Senha temporária (envie para o admin, ele troca no primeiro acesso)</label>
+  <input type="text" id="org-admin-senha" placeholder="Ex: troque123">
+  <button class="btn secondary" type="button" onclick="gerarSenhaAleatoria()">Gerar senha aleatória</button>
+  <button class="btn" onclick="criarOrganizador()">Criar organizador + admin</button>
   <div id="master-msg"></div>
 </div>
 
@@ -158,11 +170,31 @@ const SUPABASE_URL = 'https://amvhlrumeeghahlnangz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtdmhscnVtZWVnaGFobG5hbmd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5NDIzMzAsImV4cCI6MjEwMzUxODMzMH0.ANAQOifxNFoVgAhEV48zg-G0RPSFvQPjhvIfK5Gg9bs';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let modoCadastro = false;
 let organizadorAtualId = null;
 
+function gerarSenhaAleatoria() {
+  const senha = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
+  document.getElementById('org-admin-senha').value = senha;
+}
+
+async function chamarEdgeFunction(nome, body) {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/${nome}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await resp.json();
+  if (!resp.ok) throw new Error(json.error || 'Erro desconhecido.');
+  return json;
+}
+
 function mostrarTela(id) {
-  ['tela-login','tela-carregando','tela-pendente','tela-master','tela-admin'].forEach((t) => {
+  ['tela-login','tela-carregando','tela-trocar-senha','tela-pendente','tela-master','tela-admin'].forEach((t) => {
     document.getElementById(t).classList.toggle('hidden', t !== id);
   });
 }
@@ -172,38 +204,18 @@ function mostrarMsg(elId, texto, tipo) {
 }
 
 // ---------------- LOGIN / CADASTRO ----------------
-document.getElementById('toggle-cadastro').addEventListener('click', () => {
-  modoCadastro = !modoCadastro;
-  document.getElementById('login-titulo').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
-  document.getElementById('btn-login').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
-  document.getElementById('login-label').textContent = modoCadastro ? 'E-mail' : 'Usuário';
-  document.getElementById('login-identificador').placeholder = modoCadastro ? 'seu@email.com' : 'seu usuário';
-  document.getElementById('toggle-cadastro').textContent = modoCadastro ? 'Já tem conta? Entrar' : 'Ainda não tem conta? Criar conta';
-});
-
 document.getElementById('btn-login').addEventListener('click', async () => {
   const identificador = document.getElementById('login-identificador').value.trim();
   const senha = document.getElementById('login-senha').value;
   if (!identificador || !senha) { mostrarMsg('login-msg', 'Preencha os campos.', 'erro'); return; }
 
-  if (modoCadastro) {
-    // cadastro ainda usa e-mail de verdade — é o que o Supabase Auth exige
-    const { data, error } = await supabaseClient.auth.signUp({ email: identificador, password: senha });
-    if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
-    if (data.session) {
-      await rotearUsuario();
-    } else {
-      mostrarMsg('login-msg', 'Conta criada! Verifique seu e-mail para confirmar, depois faça login.', 'ok');
-    }
-  } else {
-    // login usa username -> resolve o e-mail real por trás, sem o usuário ver
-    const { data: email, error: erroResolucao } = await supabaseClient.rpc('email_por_username', { p_username: identificador });
-    if (erroResolucao || !email) { mostrarMsg('login-msg', 'Usuário não encontrado.', 'erro'); return; }
+  // login usa username -> resolve o e-mail real por trás, sem o usuário ver
+  const { data: email, error: erroResolucao } = await supabaseClient.rpc('email_por_username', { p_username: identificador });
+  if (erroResolucao || !email) { mostrarMsg('login-msg', 'Usuário não encontrado.', 'erro'); return; }
 
-    const { error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
-    if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
-    await rotearUsuario();
-  }
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
+  if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
+  await rotearUsuario();
 });
 
 function sair() {
@@ -224,7 +236,7 @@ async function rotearUsuario() {
 
   const { data: usuarioRows } = await supabaseClient
     .from('usuarios')
-    .select('organizador_id, organizadores(nome, ativo)')
+    .select('organizador_id, senha_temporaria, organizadores(nome, ativo)')
     .eq('auth_user_id', user.id);
 
   if (!usuarioRows || usuarioRows.length === 0) {
@@ -234,6 +246,12 @@ async function rotearUsuario() {
   }
 
   const vinculo = usuarioRows[0];
+
+  if (vinculo.senha_temporaria) {
+    mostrarTela('tela-trocar-senha');
+    return;
+  }
+
   if (!vinculo.organizadores || !vinculo.organizadores.ativo) {
     document.getElementById('meu-uid').textContent = user.id;
     mostrarTela('tela-pendente');
@@ -243,6 +261,23 @@ async function rotearUsuario() {
   organizadorAtualId = vinculo.organizador_id;
   document.getElementById('admin-org-nome').textContent = vinculo.organizadores.nome;
   await carregarPainelAdmin();
+}
+
+async function trocarSenha() {
+  const novaSenha = document.getElementById('nova-senha').value;
+  const confirma = document.getElementById('nova-senha-confirma').value;
+
+  if (!novaSenha || novaSenha.length < 6) { mostrarMsg('trocar-senha-msg', 'A senha precisa ter pelo menos 6 caracteres.', 'erro'); return; }
+  if (novaSenha !== confirma) { mostrarMsg('trocar-senha-msg', 'As senhas não coincidem.', 'erro'); return; }
+
+  const { error: erroSenha } = await supabaseClient.auth.updateUser({ password: novaSenha });
+  if (erroSenha) { mostrarMsg('trocar-senha-msg', erroSenha.message, 'erro'); return; }
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const { error: erroFlag } = await supabaseClient.from('usuarios').update({ senha_temporaria: false }).eq('auth_user_id', user.id);
+  if (erroFlag) { mostrarMsg('trocar-senha-msg', erroFlag.message, 'erro'); return; }
+
+  await rotearUsuario();
 }
 
 // ---------------- PAINEL MASTER ----------------
@@ -258,6 +293,7 @@ async function carregarPainelMaster() {
         <td>${o.email}</td>
         <td><span class="pill ${o.ativo ? 'ativo' : 'pendente'}">${o.ativo ? 'Ativo' : 'Pendente'}</span></td>
         <td><button class="btn small secondary" onclick="alternarAtivo('${o.id}', ${o.ativo})">${o.ativo ? 'Desativar' : 'Liberar'}</button></td>
+        <td><button class="btn small secondary" onclick="resetarSenhaOrganizador('${o.id}')">Resetar senha</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -272,41 +308,39 @@ async function alternarAtivo(id, ativoAtual) {
 }
 
 async function criarOrganizador() {
-  const nome = document.getElementById('org-nome').value.trim();
-  const email = document.getElementById('org-email').value.trim();
-  const adminNome = document.getElementById('org-admin-nome').value.trim();
-  const adminEmail = document.getElementById('org-admin-email').value.trim();
-  const adminUid = document.getElementById('org-admin-uid').value.trim();
-  const adminUsername = document.getElementById('org-admin-username').value.trim().toLowerCase();
+  const nomeOrganizacao = document.getElementById('org-nome').value.trim();
+  const emailOrganizacao = document.getElementById('org-email').value.trim();
+  const nomeAdmin = document.getElementById('org-admin-nome').value.trim();
+  const emailAdmin = document.getElementById('org-admin-email').value.trim();
+  const username = document.getElementById('org-admin-username').value.trim().toLowerCase();
+  const senhaTemporaria = document.getElementById('org-admin-senha').value.trim();
 
-  if (!nome || !email || !adminNome || !adminEmail || !adminUid || !adminUsername) {
+  if (!nomeOrganizacao || !emailOrganizacao || !nomeAdmin || !emailAdmin || !username || !senhaTemporaria) {
     mostrarMsg('master-msg', 'Preencha todos os campos.', 'erro');
     return;
   }
 
-  const { data: org, error: erroOrg } = await supabaseClient
-    .from('organizadores')
-    .insert({ nome, email, ativo: true })
-    .select()
-    .single();
+  try {
+    await chamarEdgeFunction('admin-criar-organizador', { nomeOrganizacao, emailOrganizacao, nomeAdmin, emailAdmin, username, senhaTemporaria });
+    mostrarMsg('master-msg', `Organizador "${nomeOrganizacao}" criado. Envie pro admin: usuário "${username}" e a senha temporária "${senhaTemporaria}".`, 'ok');
+    ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-username','org-admin-senha'].forEach((id) => document.getElementById(id).value = '');
+    await carregarPainelMaster();
+  } catch (e) {
+    mostrarMsg('master-msg', e.message, 'erro');
+  }
+}
 
-  if (erroOrg) { mostrarMsg('master-msg', erroOrg.message, 'erro'); return; }
+async function resetarSenhaOrganizador(organizadorId) {
+  const { data: usuariosDoOrg } = await supabaseClient.from('usuarios').select('auth_user_id, nome').eq('organizador_id', organizadorId);
+  if (!usuariosDoOrg || usuariosDoOrg.length === 0) { mostrarMsg('master-msg', 'Nenhum admin vinculado a esse organizador.', 'erro'); return; }
 
-  const { error: erroUsuario } = await supabaseClient
-    .from('usuarios')
-    .insert({ organizador_id: org.id, auth_user_id: adminUid, nome: adminNome, email: adminEmail });
-
-  if (erroUsuario) { mostrarMsg('master-msg', erroUsuario.message, 'erro'); return; }
-
-  const { error: erroUsername } = await supabaseClient
-    .from('login_usernames')
-    .insert({ username: adminUsername, auth_user_id: adminUid });
-
-  if (erroUsername) { mostrarMsg('master-msg', `Organizador criado, mas o nome de usuário falhou: ${erroUsername.message}`, 'erro'); return; }
-
-  mostrarMsg('master-msg', `Organizador "${nome}" criado, admin vinculado, login "${adminUsername}" definido.`, 'ok');
-  ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-uid','org-admin-username'].forEach((id) => document.getElementById(id).value = '');
-  await carregarPainelMaster();
+  const novaSenha = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
+  try {
+    await chamarEdgeFunction('admin-resetar-senha', { authUserId: usuariosDoOrg[0].auth_user_id, novaSenhaTemporaria: novaSenha });
+    mostrarMsg('master-msg', `Senha de ${usuariosDoOrg[0].nome} resetada. Nova senha temporária: "${novaSenha}".`, 'ok');
+  } catch (e) {
+    mostrarMsg('master-msg', e.message, 'erro');
+  }
 }
 
 // ---------------- PAINEL ADMIN ----------------
