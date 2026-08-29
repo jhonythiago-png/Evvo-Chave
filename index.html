@@ -81,10 +81,20 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .torneio-row:hover td{color:var(--chalk);}
 .grupo-box{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
 .grupo-box h3{font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
-.jogo-row{display:flex;align-items:center;gap:10px;background:var(--void);border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:13px;}
-.jogo-row .times{flex:1;}
-.jogo-row input[type=number]{width:50px;text-align:center;padding:5px;}
-.jogo-row .horario{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:11px;min-width:70px;}
+.jogo-card{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+.jogo-card .meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px;}
+.jogo-card .confronto{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;flex-wrap:wrap;}
+.jogo-card .confronto .time-nome{flex:1;min-width:70px;}
+.jogo-card .confronto .time-nome.direita{text-align:right;}
+.jogo-card .placar{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.jogo-card input[type=number]{width:44px;text-align:center;padding:5px;flex-shrink:0;}
+.jogo-card .salvar-btn{margin-top:8px;width:100%;padding:6px;font-size:11px;}
+
+/* Desktop: aproveitar a largura, não deixar sobrando */
+@media (min-width: 900px){
+  .card.wide{max-width:1180px;}
+  .torneio-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:26px;align-items:start;}
+}
 </style>
 </head>
 <body>
@@ -189,66 +199,70 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
     <span class="sair" onclick="voltarParaListaTorneios()">← Voltar</span>
   </div>
 
-  <h2>Participantes</h2>
-  <table id="tabela-participantes"><tbody></tbody></table>
-  <div class="divider"></div>
-  <label>Nome</label>
-  <input type="text" id="part-nome" placeholder="Nome do participante">
-  <label>Idade</label>
-  <input type="number" id="part-idade" placeholder="Ex: 28">
-  <label>Nível técnico (1 a 5)</label>
-  <input type="number" id="part-nivel" min="1" max="5" placeholder="Ex: 3">
-  <label id="part-posicao-label">Posição</label>
-  <select id="part-posicao">
-    <option value="GOL">Goleiro</option>
-    <option value="ZAG">Zagueiro</option>
-    <option value="MEI">Meio</option>
-    <option value="ATA">Atacante</option>
-  </select>
-  <button class="btn" onclick="adicionarParticipante()">Adicionar participante</button>
-  <div id="participantes-msg"></div>
+  <div class="torneio-grid">
+    <div>
+      <h2>Participantes</h2>
+      <table id="tabela-participantes"><tbody></tbody></table>
+      <div class="divider"></div>
+      <label>Nome</label>
+      <input type="text" id="part-nome" placeholder="Nome do participante">
+      <label>Idade</label>
+      <input type="number" id="part-idade" placeholder="Ex: 28">
+      <label>Nível técnico (1 a 5)</label>
+      <input type="number" id="part-nivel" min="1" max="5" placeholder="Ex: 3">
+      <label id="part-posicao-label">Posição</label>
+      <select id="part-posicao">
+        <option value="GOL">Goleiro</option>
+        <option value="ZAG">Zagueiro</option>
+        <option value="MEI">Meio</option>
+        <option value="ATA">Atacante</option>
+      </select>
+      <button class="btn" onclick="adicionarParticipante()">Adicionar participante</button>
+      <div id="participantes-msg"></div>
+    </div>
 
-  <div class="divider"></div>
+    <div>
+      <h2>Sorteio</h2>
+      <label>Tamanho do time</label>
+      <input type="number" id="sorteio-tamanho-time" value="8" min="1">
+      <label>Nomes dos times</label>
+      <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
+        <option value="generico">Genérico (Time 1, Time 2...)</option>
+        <option value="sulamericano">Seleções Sul-Americanas</option>
+        <option value="selecoes_copa">Seleções (Copa do Mundo)</option>
+        <option value="clubes_brasileiros">Clubes Brasileiros</option>
+        <option value="personalizado">Personalizado (eu digito)</option>
+      </select>
+      <div id="sorteio-tema-personalizado-wrap" class="hidden">
+        <label>Nomes separados por vírgula</label>
+        <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians, São Paulo">
+      </div>
+      <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
+      <div id="sorteio-msg"></div>
+      <div id="sorteio-resultado"></div>
 
-  <h2>Sorteio</h2>
-  <label>Tamanho do time</label>
-  <input type="number" id="sorteio-tamanho-time" value="8" min="1">
-  <label>Nomes dos times</label>
-  <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
-    <option value="generico">Genérico (Time 1, Time 2...)</option>
-    <option value="sulamericano">Seleções Sul-Americanas</option>
-    <option value="selecoes_copa">Seleções (Copa do Mundo)</option>
-    <option value="clubes_brasileiros">Clubes Brasileiros</option>
-    <option value="personalizado">Personalizado (eu digito)</option>
-  </select>
-  <div id="sorteio-tema-personalizado-wrap" class="hidden">
-    <label>Nomes separados por vírgula</label>
-    <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians, São Paulo">
+      <div class="divider"></div>
+
+      <h2>Grupos</h2>
+      <label>Número de grupos</label>
+      <input type="number" id="grupos-numero" value="2" min="1">
+      <button class="btn secondary" onclick="sortearGrupos()">Sortear grupos</button>
+      <div id="grupos-msg"></div>
+      <div id="grupos-resultado"></div>
+
+      <div class="divider"></div>
+
+      <h2>Jogos</h2>
+      <button class="btn secondary" onclick="gerarCalendario()">Gerar calendário</button>
+      <div id="jogos-msg"></div>
+      <div id="jogos-lista"></div>
+
+      <div class="divider"></div>
+
+      <h2>Classificação</h2>
+      <div id="classificacao-resultado"></div>
+    </div>
   </div>
-  <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
-  <div id="sorteio-msg"></div>
-  <div id="sorteio-resultado"></div>
-
-  <div class="divider"></div>
-
-  <h2>Grupos</h2>
-  <label>Número de grupos</label>
-  <input type="number" id="grupos-numero" value="2" min="1">
-  <button class="btn secondary" onclick="sortearGrupos()">Sortear grupos</button>
-  <div id="grupos-msg"></div>
-  <div id="grupos-resultado"></div>
-
-  <div class="divider"></div>
-
-  <h2>Jogos</h2>
-  <button class="btn secondary" onclick="gerarCalendario()">Gerar calendário</button>
-  <div id="jogos-msg"></div>
-  <div id="jogos-lista"></div>
-
-  <div class="divider"></div>
-
-  <h2>Classificação</h2>
-  <div id="classificacao-resultado"></div>
 </div>
 
 <script>
@@ -735,14 +749,19 @@ async function carregarJogosEClassificacao() {
   lista.innerHTML = '';
   (jogos || []).forEach((j) => {
     const div = document.createElement('div');
-    div.className = 'jogo-row';
+    div.className = 'jogo-card';
     div.innerHTML = `
-      <span class="horario">${j.horario_previsto?.slice(0,5) || ''} · C${j.campo_numero}</span>
-      <span class="times">${j.grupos?.nome || ''} — ${j.time_a?.nome} x ${j.time_b?.nome}</span>
-      <input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0">
-      <span>x</span>
-      <input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0">
-      <button class="btn small secondary" onclick="lancarPlacar('${j.id}')">Salvar</button>
+      <div class="meta">${j.grupos?.nome || ''} · ${j.horario_previsto?.slice(0,5) || ''} · Campo ${j.campo_numero}</div>
+      <div class="confronto">
+        <span class="time-nome">${j.time_a?.nome}</span>
+        <span class="placar">
+          <input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0">
+          <span>x</span>
+          <input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0">
+        </span>
+        <span class="time-nome direita">${j.time_b?.nome}</span>
+      </div>
+      <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
     `;
     lista.appendChild(div);
   });
