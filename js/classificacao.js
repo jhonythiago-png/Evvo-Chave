@@ -116,7 +116,9 @@ function calcularClassificacao(jogosEncerrados, times, config = {}) {
   return { classificacao: linhas, avisos };
 }
 
-module.exports = { calcularClassificacao };
+if (typeof module !== 'undefined') {
+  module.exports = { calcularClassificacao };
+}
 
 if (typeof window !== 'undefined') {
   window.Chave = window.Chave || {};

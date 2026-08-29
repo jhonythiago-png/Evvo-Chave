@@ -135,7 +135,9 @@ function sortearTimes(participantes, tamanhoTime, opcoes = {}) {
   return { times, sobra, numTimes, avisoSobra, avisoPosicao };
 }
 
-module.exports = { sortearTimes };
+if (typeof module !== 'undefined') {
+  module.exports = { sortearTimes };
+}
 
 // Compatível também com uso direto no navegador (sem bundler/build step),
 // igual ao padrão já usado no Rachômetro e no Evvo — expõe em window.Chave.

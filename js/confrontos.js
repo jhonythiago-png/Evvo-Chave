@@ -38,7 +38,9 @@ function gerarRodadasRoundRobin(timeIds) {
   return rodadas;
 }
 
-module.exports = { gerarRodadasRoundRobin };
+if (typeof module !== 'undefined') {
+  module.exports = { gerarRodadasRoundRobin };
+}
 
 if (typeof window !== 'undefined') {
   window.Chave = window.Chave || {};

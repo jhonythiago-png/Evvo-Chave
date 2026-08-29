@@ -97,7 +97,9 @@ function agendarJogos(rodadas, config) {
   };
 }
 
-module.exports = { agendarJogos, hhmmParaMinutos, minutosParaHhmm };
+if (typeof module !== 'undefined') {
+  module.exports = { agendarJogos, hhmmParaMinutos, minutosParaHhmm };
+}
 
 if (typeof window !== 'undefined') {
   window.Chave = window.Chave || {};
