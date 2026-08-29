@@ -339,9 +339,11 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
             <div id="participantes-msg"></div>
           </div>
           <div class="painel">
-            <h3>Sortear times</h3>
+            <h3>Sortear tudo (times + grupos + calendário)</h3>
             <label>Tamanho do time</label>
             <input type="number" id="sorteio-tamanho-time" value="8" min="1">
+            <label>Número de grupos</label>
+            <input type="number" id="sorteio-numero-grupos" value="2" min="1">
             <label>Nomes dos times</label>
             <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
               <option value="generico">Genérico (Time 1, Time 2...)</option>
@@ -354,7 +356,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
               <label>Nomes separados por vírgula</label>
               <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians">
             </div>
-            <button class="btn secondary full" onclick="rodarSorteio()">Sortear times</button>
+            <button class="btn secondary full" onclick="rodarSorteio()">Pré-visualizar sorteio</button>
             <div id="sorteio-msg"></div>
             <div id="sorteio-resultado"></div>
           </div>
@@ -363,7 +365,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 
       <div class="pane" id="tab-grupos">
         <div class="painel" style="max-width:480px;margin-bottom:20px;">
-          <h3>Sortear grupos</h3>
+          <h3>Sortear grupos novamente</h3>
+          <div class="msg aviso">Já é feito automaticamente no botão "Sortear tudo" da aba Sorteio. Use isto só se quiser reembaralhar os grupos sem redistribuir os times.</div>
           <label>Número de grupos</label>
           <input type="number" id="grupos-numero" value="2" min="1">
           <button class="btn secondary full" onclick="sortearGrupos()">Sortear grupos</button>
@@ -415,6 +418,15 @@ let organizadorAtualId = null;
 let torneioAtualId = null;
 let torneioAtualEsporte = null;
 const ESPORTES_COM_POSICAO = ['futebol', 'volei', 'basquete'];
+
+// Busca grupos + times sem depender do embed automático do PostgREST
+// (esse recurso pode falhar se o cache de relacionamentos do Supabase não
+// tiver sido atualizado após uma alteração de schema via SQL Editor).
+async function buscarGruposComTimes(torneioId) {
+  const { data: grupos } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneioId).order('nome', { ascending: true });
+  const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioId);
+  return (grupos || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
+}
 
 function gerarSenhaAleatoria() {
   const senha = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
@@ -628,11 +640,11 @@ async function abrirTorneio(id, nome, esporte, status) {
   document.getElementById('part-posicao').style.display = usaPosicao ? 'block' : 'none';
   document.getElementById('sorteio-resultado').innerHTML = '';
   document.getElementById('sorteio-msg').innerHTML = '';
-  document.getElementById('grupos-resultado').innerHTML = '';
 
   await carregarListaTorneios();
   await carregarInfoTorneio();
   await carregarParticipantes();
+  await carregarGrupos();
   await carregarJogosEClassificacao();
   await carregarMataMata();
 
@@ -751,19 +763,32 @@ async function salvarSorteio() {
   const { error: erroLimpeza } = await supabaseClient.from('times').delete().eq('torneio_id', torneioAtualId);
   if (erroLimpeza) { mostrarMsg('sorteio-msg', `Erro ao limpar sorteio anterior: ${erroLimpeza.message}`, 'erro'); return; }
 
+  const timesCriados = [];
   for (const time of ultimoResultadoSorteio.times) {
     const { data: novoTime, error: erroTime } = await supabaseClient.from('times').insert({ torneio_id: torneioAtualId, nome: time.nome, cor: time.cor }).select().single();
     if (erroTime) { mostrarMsg('sorteio-msg', `Erro ao salvar time "${time.nome}": ${erroTime.message}`, 'erro'); return; }
+    timesCriados.push(novoTime);
 
     const idsJogadores = time.jogadores.map((j) => j.id);
     const { error: erroUpdate } = await supabaseClient.from('participantes').update({ time_id: novoTime.id }).in('id', idsJogadores);
     if (erroUpdate) { mostrarMsg('sorteio-msg', `Erro ao vincular jogadores do time "${time.nome}": ${erroUpdate.message}`, 'erro'); return; }
   }
 
-  mostrarMsg('sorteio-msg', 'Sorteio salvo! Times criados e participantes vinculados.', 'ok');
   document.getElementById('sorteio-resultado').innerHTML = '';
   ultimoResultadoSorteio = null;
   await carregarParticipantes();
+
+  // ---- esteira automática: grupos + calendário, sem precisar trocar de aba ----
+  mostrarMsg('sorteio-msg', 'Times salvos. Sorteando grupos...', 'ok');
+  const numGrupos = parseInt(document.getElementById('sorteio-numero-grupos').value, 10) || 1;
+  document.getElementById('grupos-numero').value = numGrupos;
+  const okGrupos = await sortearGruposComTimes(timesCriados, numGrupos);
+  if (!okGrupos) return;
+
+  mostrarMsg('sorteio-msg', 'Grupos sorteados. Gerando calendário...', 'ok');
+  await gerarCalendario();
+
+  mostrarMsg('sorteio-msg', 'Pronto! Times, grupos e calendário de jogos já estão gerados — confira nas abas Grupos e Jogos.', 'ok');
 }
 
 async function sortearGrupos() {
@@ -771,7 +796,11 @@ async function sortearGrupos() {
   const { data: times, error } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioAtualId);
   if (error) { mostrarMsg('grupos-msg', error.message, 'erro'); return; }
   if (!times || times.length === 0) { mostrarMsg('grupos-msg', 'Sorteie os times primeiro.', 'erro'); return; }
-  if (numGrupos < 1) { mostrarMsg('grupos-msg', 'Número de grupos inválido.', 'erro'); return; }
+  await sortearGruposComTimes(times, numGrupos);
+}
+
+async function sortearGruposComTimes(times, numGrupos) {
+  if (numGrupos < 1) { mostrarMsg('grupos-msg', 'Número de grupos inválido.', 'erro'); return false; }
 
   await supabaseClient.from('grupos').delete().eq('torneio_id', torneioAtualId);
 
@@ -781,26 +810,41 @@ async function sortearGrupos() {
 
   for (const g of grupos) {
     const { data: novoGrupo, error: erroGrupo } = await supabaseClient.from('grupos').insert({ torneio_id: torneioAtualId, nome: g.nome }).select().single();
-    if (erroGrupo) { mostrarMsg('grupos-msg', erroGrupo.message, 'erro'); return; }
+    if (erroGrupo) { mostrarMsg('grupos-msg', erroGrupo.message, 'erro'); return false; }
     g.id = novoGrupo.id;
     const idsTimes = g.times.map((t) => t.id);
     const { error: erroUpdate } = await supabaseClient.from('times').update({ grupo_id: novoGrupo.id }).in('id', idsTimes);
-    if (erroUpdate) { mostrarMsg('grupos-msg', erroUpdate.message, 'erro'); return; }
+    if (erroUpdate) { mostrarMsg('grupos-msg', erroUpdate.message, 'erro'); return false; }
   }
 
+  renderizarGrupos(grupos);
+  mostrarMsg('grupos-msg', 'Grupos sorteados e salvos.', 'ok');
+  await atualizarClassificacao();
+  return true;
+}
+
+function renderizarGrupos(grupos) {
   let html = '';
   grupos.forEach((g) => { html += `<div class="grupo-box"><h3>${g.nome}</h3>${g.times.map((t) => t.nome).join(', ')}</div>`; });
   document.getElementById('grupos-resultado').innerHTML = html;
-  mostrarMsg('grupos-msg', 'Grupos sorteados e salvos.', 'ok');
-  await atualizarClassificacao();
+}
+
+// Recarrega os grupos já existentes (salvos em sorteios anteriores) ao abrir
+// o torneio — sem isso, a tela ficava vazia mesmo com os dados salvos no banco.
+async function carregarGrupos() {
+  const grupos = await buscarGruposComTimes(torneioAtualId);
+  if (grupos && grupos.length > 0) {
+    renderizarGrupos(grupos.map((g) => ({ nome: g.nome, times: g.times })));
+  } else {
+    document.getElementById('grupos-resultado').innerHTML = '';
+  }
 }
 
 async function gerarCalendario() {
   const { data: torneio, error: erroTorneio } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
   if (erroTorneio) { mostrarMsg('jogos-msg', erroTorneio.message, 'erro'); return; }
 
-  const { data: grupos, error: erroGrupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId);
-  if (erroGrupos) { mostrarMsg('jogos-msg', erroGrupos.message, 'erro'); return; }
+  const grupos = await buscarGruposComTimes(torneioAtualId);
   if (!grupos || grupos.length === 0) { mostrarMsg('jogos-msg', 'Sorteie os grupos primeiro.', 'erro'); return; }
 
   await supabaseClient.from('jogos').delete().eq('torneio_id', torneioAtualId).eq('fase', 'grupos');
@@ -878,7 +922,7 @@ async function lancarPlacar(jogoId) {
 
 async function atualizarClassificacao() {
   const { data: torneio } = await supabaseClient.from('torneios').select('pontos_vitoria, pontos_empate, pontos_derrota').eq('id', torneioAtualId).single();
-  const { data: grupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId);
+  const grupos = await buscarGruposComTimes(torneioAtualId);
   const { data: jogosEncerrados } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioAtualId).eq('fase', 'grupos').eq('status', 'encerrado');
 
   let html = '';
@@ -900,7 +944,7 @@ async function atualizarClassificacao() {
 // ---------------- CLASSIFICAÇÃO POR GRUPO (reaproveitada pelo mata-mata) ----------------
 async function obterClassificacaoPorGrupo() {
   const { data: torneio } = await supabaseClient.from('torneios').select('pontos_vitoria, pontos_empate, pontos_derrota').eq('id', torneioAtualId).single();
-  const { data: grupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
+  const grupos = await buscarGruposComTimes(torneioAtualId);
   const { data: jogosEncerrados } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioAtualId).eq('fase', 'grupos').eq('status', 'encerrado');
 
   return (grupos || []).map((g) => {
