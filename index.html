@@ -18,22 +18,15 @@
 :root{
   --void:#0A0F0D; --panel:#12211B; --panel-2:#182B22; --line:#22362B; --line-soft:#1A2A22;
   --chalk:#EEF1EA; --muted:#7E9488; --muted-2:#54685D;
-  --pitch:#22A567; --pitch-dim:#1B7E51; --amber:#FFB627; --amber-dim:#9C7419; --red:#E2574C;
+  --pitch:#22A567; --pitch-dim:#1B7E51; --amber:#FFB627; --amber-dim:#9C7419; --red:#E2574C; --blue:#3E8ED9;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--void);color:var(--chalk);font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.oswald{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.03em;}
+body{background:var(--void);color:var(--chalk);font-family:'Inter',sans-serif;min-height:100vh;}
+.oswald{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.02em;}
 .mono{font-family:'JetBrains Mono',monospace;}
 
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;width:100%;max-width:420px;}
-.card.wide{max-width:720px;}
-.brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;justify-content:center;}
-.brand-mark{width:28px;height:28px;border-radius:6px;background:var(--pitch);display:flex;align-items:center;justify-content:center;}
-.brand-mark svg{width:15px;height:15px;stroke:var(--void);}
-.brand-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:0.03em;}
-
 h2{font-family:'Oswald',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);margin-bottom:14px;font-weight:500;}
-
+h3{font-family:'Oswald',sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:14px;font-weight:500;}
 label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;margin-top:12px;}
 label:first-child{margin-top:0;}
 input,select{
@@ -41,46 +34,95 @@ input,select{
   padding:9px 11px;color:var(--chalk);font-size:13px;font-family:'Inter',sans-serif;
 }
 input:focus,select:focus{outline:none;border-color:var(--pitch-dim);}
-
 .btn{
-  width:100%;margin-top:18px;background:var(--pitch);color:var(--void);border:none;border-radius:6px;
-  padding:11px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;
+  background:var(--pitch);color:var(--void);border:none;border-radius:6px;
+  padding:11px 16px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;
   letter-spacing:0.03em;cursor:pointer;
 }
 .btn:hover{background:#2ABE79;}
-.btn.secondary{background:transparent;border:1px solid var(--line);color:var(--chalk);margin-top:8px;}
-.btn.small{width:auto;margin-top:0;padding:6px 12px;font-size:11px;}
-
-.link-toggle{text-align:center;margin-top:14px;font-size:12px;color:var(--muted);cursor:pointer;}
-.link-toggle:hover{color:var(--chalk);}
-
+.btn.secondary{background:transparent;border:1px solid var(--line);color:var(--chalk);}
+.btn.small{padding:6px 12px;font-size:11px;}
+.btn.full{width:100%;margin-top:14px;}
 .msg{font-size:12px;padding:9px 11px;border-radius:6px;margin-top:12px;}
 .msg.erro{background:rgba(226,87,76,0.12);color:var(--red);}
 .msg.ok{background:rgba(34,165,103,0.12);color:var(--pitch);}
 .msg.aviso{background:rgba(255,182,39,0.12);color:var(--amber);}
-
 .hidden{display:none !important;}
-
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;}
 th{text-align:left;font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.04em;padding:0 8px 8px;}
 td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .pill{font-size:10px;padding:3px 8px;border-radius:20px;text-transform:uppercase;}
 .pill.ativo{background:rgba(34,165,103,0.14);color:var(--pitch);}
 .pill.pendente{background:rgba(255,182,39,0.14);color:var(--amber);}
-
 .uid-box{background:var(--void);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;margin-top:8px;}
 .divider{border-top:1px solid var(--line);margin:20px 0;}
 .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .sair{font-size:12px;color:var(--muted);cursor:pointer;}
 .sair:hover{color:var(--chalk);}
+
+.tela-simples{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;width:100%;max-width:420px;}
+.card.wide{max-width:clamp(860px, 92vw, 1700px);}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;justify-content:center;}
+.brand-mark{width:28px;height:28px;border-radius:6px;background:var(--pitch);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-mark svg{width:15px;height:15px;stroke:var(--void);}
+.brand-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:0.03em;}
+
+#app{display:none;}
+#app.ativo{display:flex;min-height:100vh;}
+
+.sidebar{
+  width:248px;min-width:248px;background:var(--panel);border-right:1px solid var(--line);
+  padding:24px 16px;display:flex;flex-direction:column;gap:22px;
+}
+.sidebar .brand{margin-bottom:0;justify-content:flex-start;padding:0 4px;}
+.new-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;background:var(--pitch);color:var(--void);
+  font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;
+  border:none;border-radius:6px;padding:11px 12px;cursor:pointer;width:100%;
+}
+.new-btn:hover{background:#2ABE79;}
+.nav-label{font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.08em;padding:0 4px;margin-bottom:8px;}
+.torneio-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;border-left:2px solid transparent;}
+.torneio-item:hover{background:var(--panel-2);}
+.torneio-item.active{background:var(--panel-2);border-left:2px solid var(--pitch);}
+.sport-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--pitch);}
+.torneio-item-text{display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+.torneio-item-name{font-size:13px;color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.torneio-item-meta{font-size:11px;color:var(--muted-2);}
+.sidebar-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 4px;border-top:1px solid var(--line);}
+.sidebar-foot-text{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.main{flex:1;min-width:0;padding:28px 36px 60px;}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:16px;flex-wrap:wrap;}
+.tt-badge{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-size:11px;padding:4px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;}
+.tt-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--pitch);}
+.tt-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:26px;margin-bottom:4px;}
+.tt-sub{font-size:13px;color:var(--muted);}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:26px;overflow-x:auto;}
+.tab{font-family:'Oswald',sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);padding:11px 16px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab:hover{color:var(--chalk);}
+.tab.active{color:var(--chalk);border-bottom:2px solid var(--amber);}
+.pane{display:none;}
+.pane.active{display:block;}
+
+.painel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;}
+.two-col{display:grid;grid-template-columns:1fr 1.2fr;gap:22px;align-items:start;}
+.info-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-row span:first-child{color:var(--muted);}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+.stat-num{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:24px;color:var(--chalk);}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:4px;}
+
 .team-mini{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
 .team-mini-head{display:flex;justify-content:space-between;font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line);}
 .team-mini-player{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--muted);}
 .teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px;}
-.torneio-row{cursor:pointer;}
-.torneio-row:hover td{color:var(--chalk);}
 .grupo-box{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
-.grupo-box h3{font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.grupo-box h3{margin-bottom:8px;}
 .jogo-card{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
 .jogo-card .meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px;}
 .jogo-card .confronto{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;flex-wrap:wrap;}
@@ -89,180 +131,269 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .jogo-card .placar{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 .jogo-card input[type=number]{width:44px;text-align:center;padding:5px;flex-shrink:0;}
 .jogo-card .salvar-btn{margin-top:8px;width:100%;padding:6px;font-size:11px;}
+.em-construcao{color:var(--muted);font-size:13px;padding:30px 10px;text-align:center;}
 
-/* Desktop: escala com o monitor (clamp = mínimo, ideal, máximo),
-   em vez de um teto fixo que sobra em monitores maiores */
-@media (min-width: 900px){
-  .card.wide{max-width:clamp(860px, 92vw, 1700px);}
-  .torneio-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:26px;align-items:start;}
+.mobile-topbar{display:none;}
+.drawer-backdrop{display:none;}
+@media (max-width: 900px){
+  #app.ativo{display:block;}
+  .mobile-topbar{
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px;
+  }
+  .hamburger{
+    background:transparent;border:1px solid var(--line);border-radius:6px;width:34px;height:34px;
+    display:flex;align-items:center;justify-content:center;color:var(--chalk);cursor:pointer;flex-shrink:0;
+  }
+  .hamburger svg{width:18px;height:18px;}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:40;transform:translateX(-100%);
+    transition:transform 0.2s ease;box-shadow:20px 0 40px rgba(0,0,0,0.4);width:78vw;max-width:280px;
+  }
+  .sidebar.open{transform:translateX(0);}
+  .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:30;}
+  .drawer-backdrop.open{display:block;}
+  .main{padding:18px 16px 60px;}
+  .topbar{flex-direction:column;align-items:stretch;gap:10px;}
+  .tt-title{font-size:20px;}
+  .two-col{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  table.standings, table{min-width:0;}
+  .painel{padding:16px;}
 }
 </style>
 </head>
 <body>
 
-<!-- LOGIN / CADASTRO -->
-<div class="card" id="tela-login">
-  <div class="brand">
-    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
-    <div class="brand-name">Chave</div>
+<div class="tela-simples" id="tela-login">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
+      <div class="brand-name">Chave</div>
+    </div>
+    <h2>Entrar</h2>
+    <label>Usuário</label>
+    <input type="text" id="login-identificador" placeholder="seu usuário" autocomplete="off" name="chave-login-user">
+    <label>Senha</label>
+    <input type="password" id="login-senha" placeholder="••••••••" autocomplete="new-password" name="chave-login-pass">
+    <button class="btn full" id="btn-login">Entrar</button>
+    <div id="login-msg"></div>
   </div>
-  <h2 id="login-titulo">Entrar</h2>
-  <label id="login-label">Usuário</label>
-  <input type="text" id="login-identificador" placeholder="seu usuário" autocomplete="off" name="chave-login-user">
-  <label>Senha</label>
-  <input type="password" id="login-senha" placeholder="••••••••" autocomplete="new-password" name="chave-login-pass">
-  <button class="btn" id="btn-login">Entrar</button>
-  <div id="login-msg"></div>
 </div>
 
-<!-- CARREGANDO -->
-<div class="card hidden" id="tela-carregando" style="text-align:center;">
+<div class="tela-simples hidden" id="tela-carregando">
   <div class="oswald" style="color:var(--muted);font-size:13px;">Carregando...</div>
 </div>
 
-<!-- TROCA DE SENHA OBRIGATÓRIA -->
-<div class="card hidden" id="tela-trocar-senha">
-  <h2 style="margin-bottom:14px;">Defina sua senha</h2>
-  <div class="msg aviso">Essa é sua senha temporária. Defina uma senha <strong>diferente</strong> da atual antes de continuar.</div>
-  <label>Nova senha</label>
-  <input type="password" id="nova-senha" placeholder="••••••••">
-  <label>Confirme a nova senha</label>
-  <input type="password" id="nova-senha-confirma" placeholder="••••••••">
-  <button class="btn" onclick="trocarSenha()">Salvar e continuar</button>
-  <div id="trocar-senha-msg"></div>
+<div class="tela-simples hidden" id="tela-trocar-senha">
+  <div class="card">
+    <h2 style="margin-bottom:14px;">Defina sua senha</h2>
+    <div class="msg aviso">Essa é sua senha temporária. Defina uma senha <strong>diferente</strong> da atual antes de continuar.</div>
+    <label>Nova senha</label>
+    <input type="password" id="nova-senha" placeholder="••••••••">
+    <label>Confirme a nova senha</label>
+    <input type="password" id="nova-senha-confirma" placeholder="••••••••">
+    <button class="btn full" onclick="trocarSenha()">Salvar e continuar</button>
+    <div id="trocar-senha-msg"></div>
+  </div>
 </div>
 
-<!-- AGUARDANDO LIBERAÇÃO -->
-<div class="card hidden" id="tela-pendente">
-  <div class="top-row"><h2 style="margin:0;">Aguardando liberação</h2><span class="sair" onclick="sair()">Sair</span></div>
-  <div class="msg aviso">Sua conta ainda não foi liberada pelo administrador do sistema (ou sua organização ainda não foi vinculada).</div>
-  <label>Seu UID (envie para quem for liberar seu acesso):</label>
-  <div class="uid-box" id="meu-uid">—</div>
+<div class="tela-simples hidden" id="tela-pendente">
+  <div class="card">
+    <div class="top-row"><h2 style="margin:0;">Aguardando liberação</h2><span class="sair" onclick="sair()">Sair</span></div>
+    <div class="msg aviso">Sua conta ainda não foi liberada pelo administrador do sistema (ou sua organização ainda não foi vinculada).</div>
+    <label>Seu UID (envie para quem for liberar seu acesso):</label>
+    <div class="uid-box" id="meu-uid">—</div>
+  </div>
 </div>
 
-<!-- PAINEL MASTER -->
-<div class="card wide hidden" id="tela-master">
-  <div class="top-row"><h2 style="margin:0;">Painel Master</h2><span class="sair" onclick="sair()">Sair</span></div>
-
-  <h2>Organizadores</h2>
-  <table id="tabela-organizadores"><tbody></tbody></table>
-
-  <div class="divider"></div>
-
-  <h2>Criar novo organizador</h2>
-  <label>Nome da organização</label>
-  <input type="text" id="org-nome" placeholder="Ex: Igreja Betel">
-  <label>E-mail da organização</label>
-  <input type="email" id="org-email" placeholder="contato@organizacao.com">
-  <div class="divider"></div>
-  <label>Nome do admin responsável</label>
-  <input type="text" id="org-admin-nome" placeholder="Nome de quem vai administrar">
-  <label>E-mail do admin</label>
-  <input type="email" id="org-admin-email" placeholder="admin@organizacao.com">
-  <label>Nome de usuário do admin (login, precisa ser único no sistema)</label>
-  <input type="text" id="org-admin-username" placeholder="Ex: joao">
-  <label>Senha temporária (envie para o admin, ele troca no primeiro acesso)</label>
-  <input type="text" id="org-admin-senha" placeholder="Ex: troque123">
-  <button class="btn secondary" type="button" onclick="gerarSenhaAleatoria()">Gerar senha aleatória</button>
-  <button class="btn" onclick="criarOrganizador()">Criar organizador + admin</button>
-  <div id="master-msg"></div>
+<div class="tela-simples hidden" id="tela-master">
+  <div class="card wide">
+    <div class="top-row"><h2 style="margin:0;">Painel Master</h2><span class="sair" onclick="sair()">Sair</span></div>
+    <h2>Organizadores</h2>
+    <table id="tabela-organizadores"><tbody></tbody></table>
+    <div class="divider"></div>
+    <h2>Criar novo organizador</h2>
+    <label>Nome da organização</label>
+    <input type="text" id="org-nome" placeholder="Ex: Igreja Betel">
+    <label>E-mail da organização</label>
+    <input type="email" id="org-email" placeholder="contato@organizacao.com">
+    <div class="divider"></div>
+    <label>Nome do admin responsável</label>
+    <input type="text" id="org-admin-nome" placeholder="Nome de quem vai administrar">
+    <label>E-mail do admin</label>
+    <input type="email" id="org-admin-email" placeholder="admin@organizacao.com">
+    <label>Nome de usuário do admin (login, precisa ser único no sistema)</label>
+    <input type="text" id="org-admin-username" placeholder="Ex: joao">
+    <label>Senha temporária (envie para o admin, ele troca no primeiro acesso)</label>
+    <input type="text" id="org-admin-senha" placeholder="Ex: troque123">
+    <button class="btn secondary full" type="button" onclick="gerarSenhaAleatoria()">Gerar senha aleatória</button>
+    <button class="btn full" onclick="criarOrganizador()">Criar organizador + admin</button>
+    <div id="master-msg"></div>
+  </div>
 </div>
 
-<!-- PAINEL ADMIN (organizador liberado) -->
-<div class="card wide hidden" id="tela-admin">
-  <div class="top-row"><h2 style="margin:0;" id="admin-org-nome">Meus torneios</h2><span class="sair" onclick="sair()">Sair</span></div>
+<div id="app">
 
-  <table id="tabela-torneios"><tbody></tbody></table>
+  <div class="mobile-topbar">
+    <button class="hamburger" onclick="toggleDrawer()" aria-label="Abrir menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="brand" style="margin-bottom:0;gap:8px;">
+      <div class="brand-mark" style="width:24px;height:24px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
+      <div class="brand-name" style="font-size:16px;">Chave</div>
+    </div>
+  </div>
+  <div class="drawer-backdrop" onclick="toggleDrawer()"></div>
 
-  <div class="divider"></div>
-
-  <h2>Criar novo torneio</h2>
-  <label>Nome do torneio</label>
-  <input type="text" id="torneio-nome" placeholder="Ex: 3º Torneio Betel de Futebol Suíço">
-  <label>Esporte</label>
-  <select id="torneio-esporte">
-    <option value="futebol">Futebol</option>
-    <option value="volei">Vôlei</option>
-    <option value="basquete">Basquete</option>
-    <option value="tenis">Tênis</option>
-    <option value="beach_tenis">Beach Tênis</option>
-  </select>
-  <label>Data do evento</label>
-  <input type="date" id="torneio-data">
-  <button class="btn" onclick="criarTorneio()">Criar torneio</button>
-  <div id="admin-msg"></div>
-</div>
-
-<!-- DETALHE DO TORNEIO -->
-<div class="card wide hidden" id="tela-torneio">
-  <div class="top-row">
-    <h2 style="margin:0;" id="torneio-detalhe-nome">Torneio</h2>
-    <span class="sair" onclick="voltarParaListaTorneios()">← Voltar</span>
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
+      <div class="brand-name">Chave</div>
+    </div>
+    <button class="new-btn" onclick="mostrarEstadoPrincipal('novo')">+ Novo torneio</button>
+    <div>
+      <div class="nav-label">Meus torneios</div>
+      <div id="lista-torneios-sidebar"></div>
+    </div>
+    <div class="sidebar-foot">
+      <div class="sidebar-foot-text" id="sidebar-org-nome">—</div>
+      <span class="sair" onclick="sair()">Sair</span>
+    </div>
   </div>
 
-  <div class="torneio-grid">
-    <div>
-      <h2>Participantes</h2>
-      <table id="tabela-participantes"><tbody></tbody></table>
-      <div class="divider"></div>
-      <label>Nome</label>
-      <input type="text" id="part-nome" placeholder="Nome do participante">
-      <label>Idade</label>
-      <input type="number" id="part-idade" placeholder="Ex: 28">
-      <label>Nível técnico (1 a 5)</label>
-      <input type="number" id="part-nivel" min="1" max="5" placeholder="Ex: 3">
-      <label id="part-posicao-label">Posição</label>
-      <select id="part-posicao">
-        <option value="GOL">Goleiro</option>
-        <option value="ZAG">Zagueiro</option>
-        <option value="MEI">Meio</option>
-        <option value="ATA">Atacante</option>
-      </select>
-      <button class="btn" onclick="adicionarParticipante()">Adicionar participante</button>
-      <div id="participantes-msg"></div>
-    </div>
+  <div class="main">
 
-    <div>
-      <h2>Sorteio</h2>
-      <label>Tamanho do time</label>
-      <input type="number" id="sorteio-tamanho-time" value="8" min="1">
-      <label>Nomes dos times</label>
-      <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
-        <option value="generico">Genérico (Time 1, Time 2...)</option>
-        <option value="sulamericano">Seleções Sul-Americanas</option>
-        <option value="selecoes_copa">Seleções (Copa do Mundo)</option>
-        <option value="clubes_brasileiros">Clubes Brasileiros</option>
-        <option value="personalizado">Personalizado (eu digito)</option>
-      </select>
-      <div id="sorteio-tema-personalizado-wrap" class="hidden">
-        <label>Nomes separados por vírgula</label>
-        <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians, São Paulo">
+    <div id="pane-vazio">
+      <div class="painel" style="text-align:center;color:var(--muted);padding:60px 20px;">
+        Selecione um torneio na lista ao lado, ou crie um novo.
       </div>
-      <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
-      <div id="sorteio-msg"></div>
-      <div id="sorteio-resultado"></div>
-
-      <div class="divider"></div>
-
-      <h2>Grupos</h2>
-      <label>Número de grupos</label>
-      <input type="number" id="grupos-numero" value="2" min="1">
-      <button class="btn secondary" onclick="sortearGrupos()">Sortear grupos</button>
-      <div id="grupos-msg"></div>
-      <div id="grupos-resultado"></div>
-
-      <div class="divider"></div>
-
-      <h2>Jogos</h2>
-      <button class="btn secondary" onclick="gerarCalendario()">Gerar calendário</button>
-      <div id="jogos-msg"></div>
-      <div id="jogos-lista"></div>
-
-      <div class="divider"></div>
-
-      <h2>Classificação</h2>
-      <div id="classificacao-resultado"></div>
     </div>
+
+    <div class="hidden" id="pane-novo-torneio">
+      <div class="top-row"><h2 style="margin:0;">Criar novo torneio</h2><span class="sair" onclick="mostrarEstadoPrincipal('vazio')">Cancelar</span></div>
+      <div class="painel" style="max-width:480px;">
+        <label>Nome do torneio</label>
+        <input type="text" id="torneio-nome" placeholder="Ex: 3º Torneio Betel de Futebol Suíço">
+        <label>Esporte</label>
+        <select id="torneio-esporte">
+          <option value="futebol">Futebol</option>
+          <option value="volei">Vôlei</option>
+          <option value="basquete">Basquete</option>
+          <option value="tenis">Tênis</option>
+          <option value="beach_tenis">Beach Tênis</option>
+        </select>
+        <label>Data do evento</label>
+        <input type="date" id="torneio-data">
+        <button class="btn full" onclick="criarTorneio()">Criar torneio</button>
+        <div id="admin-msg"></div>
+      </div>
+    </div>
+
+    <div class="hidden" id="pane-torneio">
+      <div class="topbar">
+        <div>
+          <div class="tt-badge"><span class="dot"></span> <span id="torneio-detalhe-esporte">Futebol</span> · <span id="torneio-detalhe-status">rascunho</span></div>
+          <div class="tt-title" id="torneio-detalhe-nome">Torneio</div>
+          <div class="tt-sub" id="torneio-detalhe-sub"></div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" data-pane="tab-visao">Visão geral</div>
+        <div class="tab" data-pane="tab-sorteio">Sorteio</div>
+        <div class="tab" data-pane="tab-grupos">Grupos</div>
+        <div class="tab" data-pane="tab-jogos">Jogos</div>
+        <div class="tab" data-pane="tab-matamata">Mata-mata</div>
+        <div class="tab" data-pane="tab-stats">Estatísticas</div>
+        <div class="tab" data-pane="tab-publico">Página pública</div>
+      </div>
+
+      <div class="pane active" id="tab-visao">
+        <div class="painel" style="max-width:520px;">
+          <h3>Informações</h3>
+          <div id="torneio-info-rows"></div>
+        </div>
+      </div>
+
+      <div class="pane" id="tab-sorteio">
+        <div class="two-col">
+          <div class="painel">
+            <h3>Participantes</h3>
+            <table id="tabela-participantes"><tbody></tbody></table>
+            <div class="divider"></div>
+            <label>Nome</label>
+            <input type="text" id="part-nome" placeholder="Nome do participante">
+            <label>Idade</label>
+            <input type="number" id="part-idade" placeholder="Ex: 28">
+            <label>Nível técnico (1 a 5)</label>
+            <input type="number" id="part-nivel" min="1" max="5" placeholder="Ex: 3">
+            <label id="part-posicao-label">Posição</label>
+            <select id="part-posicao">
+              <option value="GOL">Goleiro</option>
+              <option value="ZAG">Zagueiro</option>
+              <option value="MEI">Meio</option>
+              <option value="ATA">Atacante</option>
+            </select>
+            <button class="btn full" onclick="adicionarParticipante()">Adicionar participante</button>
+            <div id="participantes-msg"></div>
+          </div>
+          <div class="painel">
+            <h3>Sortear times</h3>
+            <label>Tamanho do time</label>
+            <input type="number" id="sorteio-tamanho-time" value="8" min="1">
+            <label>Nomes dos times</label>
+            <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
+              <option value="generico">Genérico (Time 1, Time 2...)</option>
+              <option value="sulamericano">Seleções Sul-Americanas</option>
+              <option value="selecoes_copa">Seleções (Copa do Mundo)</option>
+              <option value="clubes_brasileiros">Clubes Brasileiros</option>
+              <option value="personalizado">Personalizado (eu digito)</option>
+            </select>
+            <div id="sorteio-tema-personalizado-wrap" class="hidden">
+              <label>Nomes separados por vírgula</label>
+              <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians">
+            </div>
+            <button class="btn secondary full" onclick="rodarSorteio()">Sortear times</button>
+            <div id="sorteio-msg"></div>
+            <div id="sorteio-resultado"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane" id="tab-grupos">
+        <div class="painel" style="max-width:480px;margin-bottom:20px;">
+          <h3>Sortear grupos</h3>
+          <label>Número de grupos</label>
+          <input type="number" id="grupos-numero" value="2" min="1">
+          <button class="btn secondary full" onclick="sortearGrupos()">Sortear grupos</button>
+          <div id="grupos-msg"></div>
+        </div>
+        <div id="grupos-resultado"></div>
+        <div class="divider"></div>
+        <h3>Classificação</h3>
+        <div id="classificacao-resultado"></div>
+      </div>
+
+      <div class="pane" id="tab-jogos">
+        <button class="btn secondary" onclick="gerarCalendario()">Gerar calendário</button>
+        <div id="jogos-msg"></div>
+        <div id="jogos-lista" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="pane" id="tab-matamata">
+        <div class="painel em-construcao">Mata-mata chega numa próxima fase — semifinais, pênaltis e campeão.</div>
+      </div>
+
+      <div class="pane" id="tab-stats">
+        <div class="painel em-construcao">Estatísticas (artilharia, cartões, disciplina) chegam numa próxima fase.</div>
+      </div>
+
+      <div class="pane" id="tab-publico">
+        <div class="painel em-construcao">Página pública (link compartilhável, sem login) chega numa próxima fase.</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -272,6 +403,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let organizadorAtualId = null;
+let torneioAtualId = null;
+let torneioAtualEsporte = null;
+const ESPORTES_COM_POSICAO = ['futebol', 'volei', 'basquete'];
 
 function gerarSenhaAleatoria() {
   const senha = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
@@ -282,11 +416,7 @@ async function chamarEdgeFunction(nome, body) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/${nome}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-      'apikey': SUPABASE_ANON_KEY,
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
     body: JSON.stringify(body),
   });
   const json = await resp.json();
@@ -294,23 +424,27 @@ async function chamarEdgeFunction(nome, body) {
   return json;
 }
 
+const TELAS_SIMPLES = ['tela-login', 'tela-carregando', 'tela-trocar-senha', 'tela-pendente', 'tela-master'];
+
 function mostrarTela(id) {
-  ['tela-login','tela-carregando','tela-trocar-senha','tela-pendente','tela-master','tela-admin','tela-torneio'].forEach((t) => {
-    document.getElementById(t).classList.toggle('hidden', t !== id);
-  });
+  TELAS_SIMPLES.forEach((t) => document.getElementById(t).classList.toggle('hidden', t !== id));
+  document.getElementById('app').classList.toggle('ativo', id === 'app');
 }
 
 function mostrarMsg(elId, texto, tipo) {
   document.getElementById(elId).innerHTML = `<div class="msg ${tipo}">${texto}</div>`;
 }
 
-// ---------------- LOGIN / CADASTRO ----------------
+function toggleDrawer() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.querySelector('.drawer-backdrop').classList.toggle('open');
+}
+
 document.getElementById('btn-login').addEventListener('click', async () => {
   const identificador = document.getElementById('login-identificador').value.trim();
   const senha = document.getElementById('login-senha').value;
   if (!identificador || !senha) { mostrarMsg('login-msg', 'Preencha os campos.', 'erro'); return; }
 
-  // login usa username -> resolve o e-mail real por trás, sem o usuário ver
   const { data: email, error: erroResolucao } = await supabaseClient.rpc('email_por_username', { p_username: identificador });
   if (erroResolucao || !email) { mostrarMsg('login-msg', 'Usuário não encontrado.', 'erro'); return; }
 
@@ -323,22 +457,15 @@ function sair() {
   supabaseClient.auth.signOut().then(() => location.reload());
 }
 
-// ---------------- ROTEAMENTO PÓS-LOGIN ----------------
 async function rotearUsuario() {
   mostrarTela('tela-carregando');
 
   const { data: masterCheck } = await supabaseClient.rpc('eh_master');
-  if (masterCheck === true) {
-    await carregarPainelMaster();
-    return;
-  }
+  if (masterCheck === true) { await carregarPainelMaster(); return; }
 
   const { data: { user } } = await supabaseClient.auth.getUser();
-
   const { data: usuarioRows } = await supabaseClient
-    .from('usuarios')
-    .select('organizador_id, senha_temporaria, organizadores(nome, ativo)')
-    .eq('auth_user_id', user.id);
+    .from('usuarios').select('organizador_id, senha_temporaria, organizadores(nome, ativo)').eq('auth_user_id', user.id);
 
   if (!usuarioRows || usuarioRows.length === 0) {
     document.getElementById('meu-uid').textContent = user.id;
@@ -347,12 +474,7 @@ async function rotearUsuario() {
   }
 
   const vinculo = usuarioRows[0];
-
-  if (vinculo.senha_temporaria) {
-    mostrarTela('tela-trocar-senha');
-    return;
-  }
-
+  if (vinculo.senha_temporaria) { mostrarTela('tela-trocar-senha'); return; }
   if (!vinculo.organizadores || !vinculo.organizadores.ativo) {
     document.getElementById('meu-uid').textContent = user.id;
     mostrarTela('tela-pendente');
@@ -360,14 +482,15 @@ async function rotearUsuario() {
   }
 
   organizadorAtualId = vinculo.organizador_id;
-  document.getElementById('admin-org-nome').textContent = vinculo.organizadores.nome;
-  await carregarPainelAdmin();
+  document.getElementById('sidebar-org-nome').textContent = vinculo.organizadores.nome;
+  await carregarListaTorneios();
+  mostrarTela('app');
+  mostrarEstadoPrincipal('vazio');
 }
 
 async function trocarSenha() {
   const novaSenha = document.getElementById('nova-senha').value;
   const confirma = document.getElementById('nova-senha-confirma').value;
-
   if (!novaSenha || novaSenha.length < 6) { mostrarMsg('trocar-senha-msg', 'A senha precisa ter pelo menos 6 caracteres.', 'erro'); return; }
   if (novaSenha !== confirma) { mostrarMsg('trocar-senha-msg', 'As senhas não coincidem.', 'erro'); return; }
 
@@ -383,28 +506,23 @@ async function trocarSenha() {
   const { data: { user } } = await supabaseClient.auth.getUser();
   const { error: erroFlag } = await supabaseClient.from('usuarios').update({ senha_temporaria: false }).eq('auth_user_id', user.id);
   if (erroFlag) { mostrarMsg('trocar-senha-msg', erroFlag.message, 'erro'); return; }
-
   await rotearUsuario();
 }
 
-// ---------------- PAINEL MASTER ----------------
 async function carregarPainelMaster() {
-  const { data: orgs, error } = await supabaseClient.from('organizadores').select('*').order('criado_em', { ascending: false });
+  const { data: orgs } = await supabaseClient.from('organizadores').select('*').order('criado_em', { ascending: false });
   const tbody = document.querySelector('#tabela-organizadores tbody');
   tbody.innerHTML = '';
-  if (orgs) {
-    orgs.forEach((o) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${o.nome}</td>
-        <td>${o.email}</td>
-        <td><span class="pill ${o.ativo ? 'ativo' : 'pendente'}">${o.ativo ? 'Ativo' : 'Pendente'}</span></td>
-        <td><button class="btn small secondary" onclick="alternarAtivo('${o.id}', ${o.ativo})">${o.ativo ? 'Desativar' : 'Liberar'}</button></td>
-        <td><button class="btn small secondary" onclick="resetarSenhaOrganizador('${o.id}')">Resetar senha</button></td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+  (orgs || []).forEach((o) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${o.nome}</td><td>${o.email}</td>
+      <td><span class="pill ${o.ativo ? 'ativo' : 'pendente'}">${o.ativo ? 'Ativo' : 'Pendente'}</span></td>
+      <td><button class="btn small secondary" onclick="alternarAtivo('${o.id}', ${o.ativo})">${o.ativo ? 'Desativar' : 'Liberar'}</button></td>
+      <td><button class="btn small secondary" onclick="resetarSenhaOrganizador('${o.id}')">Resetar senha</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
   mostrarTela('tela-master');
 }
 
@@ -423,116 +541,127 @@ async function criarOrganizador() {
   const senhaTemporaria = document.getElementById('org-admin-senha').value.trim();
 
   if (!nomeOrganizacao || !emailOrganizacao || !nomeAdmin || !emailAdmin || !username || !senhaTemporaria) {
-    mostrarMsg('master-msg', 'Preencha todos os campos.', 'erro');
-    return;
+    mostrarMsg('master-msg', 'Preencha todos os campos.', 'erro'); return;
   }
-
   try {
     await chamarEdgeFunction('admin-criar-organizador', { nomeOrganizacao, emailOrganizacao, nomeAdmin, emailAdmin, username, senhaTemporaria });
     mostrarMsg('master-msg', `Organizador "${nomeOrganizacao}" criado. Envie pro admin: usuário "${username}" e a senha temporária "${senhaTemporaria}".`, 'ok');
     ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-username','org-admin-senha'].forEach((id) => document.getElementById(id).value = '');
     await carregarPainelMaster();
-  } catch (e) {
-    mostrarMsg('master-msg', e.message, 'erro');
-  }
+  } catch (e) { mostrarMsg('master-msg', e.message, 'erro'); }
 }
 
 async function resetarSenhaOrganizador(organizadorId) {
   const { data: usuariosDoOrg } = await supabaseClient.from('usuarios').select('auth_user_id, nome').eq('organizador_id', organizadorId);
   if (!usuariosDoOrg || usuariosDoOrg.length === 0) { mostrarMsg('master-msg', 'Nenhum admin vinculado a esse organizador.', 'erro'); return; }
-
   const novaSenha = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
   try {
     await chamarEdgeFunction('admin-resetar-senha', { authUserId: usuariosDoOrg[0].auth_user_id, novaSenhaTemporaria: novaSenha });
     mostrarMsg('master-msg', `Senha de ${usuariosDoOrg[0].nome} resetada. Nova senha temporária: "${novaSenha}".`, 'ok');
-  } catch (e) {
-    mostrarMsg('master-msg', e.message, 'erro');
+  } catch (e) { mostrarMsg('master-msg', e.message, 'erro'); }
+}
+
+function mostrarEstadoPrincipal(estado) {
+  document.getElementById('pane-vazio').classList.toggle('hidden', estado !== 'vazio');
+  document.getElementById('pane-novo-torneio').classList.toggle('hidden', estado !== 'novo');
+  document.getElementById('pane-torneio').classList.toggle('hidden', estado !== 'torneio');
+  if (window.innerWidth <= 900) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.querySelector('.drawer-backdrop').classList.remove('open');
   }
 }
 
-// ---------------- PAINEL ADMIN ----------------
-async function carregarPainelAdmin() {
+async function carregarListaTorneios() {
   const { data: torneios } = await supabaseClient
-    .from('torneios')
-    .select('*')
-    .eq('organizador_id', organizadorAtualId)
-    .order('criado_em', { ascending: false });
+    .from('torneios').select('*').eq('organizador_id', organizadorAtualId).order('criado_em', { ascending: false });
 
-  const tbody = document.querySelector('#tabela-torneios tbody');
-  tbody.innerHTML = '';
-  if (torneios) {
-    torneios.forEach((t) => {
-      const tr = document.createElement('tr');
-      tr.className = 'torneio-row';
-      tr.onclick = () => abrirTorneio(t.id, t.nome, t.esporte);
-      tr.innerHTML = `<td>${t.nome}</td><td>${t.esporte}</td><td>${t.data_evento}</td><td><span class="pill ${t.status === 'encerrado' ? 'ativo' : 'pendente'}">${t.status}</span></td>`;
-      tbody.appendChild(tr);
-    });
-  }
-  mostrarTela('tela-admin');
+  const lista = document.getElementById('lista-torneios-sidebar');
+  lista.innerHTML = '';
+  (torneios || []).forEach((t) => {
+    const div = document.createElement('div');
+    div.className = 'torneio-item' + (t.id === torneioAtualId ? ' active' : '');
+    div.onclick = () => abrirTorneio(t.id, t.nome, t.esporte, t.status);
+    div.innerHTML = `
+      <div class="sport-dot"></div>
+      <div class="torneio-item-text">
+        <div class="torneio-item-name">${t.nome}</div>
+        <div class="torneio-item-meta">${t.esporte} · ${t.status}</div>
+      </div>`;
+    lista.appendChild(div);
+  });
 }
 
 async function criarTorneio() {
   const nome = document.getElementById('torneio-nome').value.trim();
   const esporte = document.getElementById('torneio-esporte').value;
   const data_evento = document.getElementById('torneio-data').value;
-
   if (!nome || !data_evento) { mostrarMsg('admin-msg', 'Preencha nome e data.', 'erro'); return; }
 
-  const { error } = await supabaseClient.from('torneios').insert({
-    organizador_id: organizadorAtualId,
-    nome, esporte, data_evento,
-  });
-
+  const { data: novoTorneio, error } = await supabaseClient.from('torneios').insert({ organizador_id: organizadorAtualId, nome, esporte, data_evento }).select().single();
   if (error) { mostrarMsg('admin-msg', error.message, 'erro'); return; }
 
-  mostrarMsg('admin-msg', 'Torneio criado com sucesso.', 'ok');
   document.getElementById('torneio-nome').value = '';
   document.getElementById('torneio-data').value = '';
-  await carregarPainelAdmin();
+  await carregarListaTorneios();
+  await abrirTorneio(novoTorneio.id, novoTorneio.nome, novoTorneio.esporte, novoTorneio.status);
 }
 
-// ---------------- DETALHE DO TORNEIO: PARTICIPANTES & SORTEIO ----------------
-let torneioAtualId = null;
-let torneioAtualEsporte = null;
-const ESPORTES_COM_POSICAO = ['futebol', 'volei', 'basquete'];
-
-async function abrirTorneio(id, nome, esporte) {
+async function abrirTorneio(id, nome, esporte, status) {
   torneioAtualId = id;
   torneioAtualEsporte = esporte;
+
   document.getElementById('torneio-detalhe-nome').textContent = nome;
-  document.getElementById('part-posicao-label').parentElement;
+  document.getElementById('torneio-detalhe-esporte').textContent = esporte;
+  document.getElementById('torneio-detalhe-status').textContent = status;
+
   const usaPosicao = ESPORTES_COM_POSICAO.includes(esporte);
   document.getElementById('part-posicao-label').style.display = usaPosicao ? 'block' : 'none';
   document.getElementById('part-posicao').style.display = usaPosicao ? 'block' : 'none';
   document.getElementById('sorteio-resultado').innerHTML = '';
   document.getElementById('sorteio-msg').innerHTML = '';
   document.getElementById('grupos-resultado').innerHTML = '';
+
+  await carregarListaTorneios();
+  await carregarInfoTorneio();
   await carregarParticipantes();
   await carregarJogosEClassificacao();
-  mostrarTela('tela-torneio');
+
+  document.querySelectorAll('#pane-torneio .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#pane-torneio .pane').forEach((p, i) => p.classList.toggle('active', i === 0));
+
+  mostrarEstadoPrincipal('torneio');
 }
 
-function voltarParaListaTorneios() {
-  mostrarTela('tela-admin');
+async function carregarInfoTorneio() {
+  const { data: t } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
+  if (!t) return;
+  document.getElementById('torneio-detalhe-sub').textContent = `Data: ${t.data_evento} · Status: ${t.status}`;
+  document.getElementById('torneio-info-rows').innerHTML = `
+    <div class="info-row"><span>Esporte</span><span>${t.esporte}</span></div>
+    <div class="info-row"><span>Data</span><span>${t.data_evento}</span></div>
+    <div class="info-row"><span>Horário de início</span><span>${t.horario_inicio?.slice(0,5) || '—'}</span></div>
+    <div class="info-row"><span>Intervalo</span><span>${t.intervalo_inicio ? t.intervalo_inicio.slice(0,5)+' às '+ (t.intervalo_fim?.slice(0,5)||'') : '—'}</span></div>
+    <div class="info-row"><span>Retorno pós-intervalo</span><span>${t.retorno_jogos?.slice(0,5) || '—'}</span></div>
+    <div class="info-row"><span>Campos disponíveis</span><span>${t.campos_disponiveis}</span></div>
+    <div class="info-row"><span>Duração da partida</span><span>${t.duracao_partida_min} min</span></div>
+    <div class="info-row"><span>Duração da final</span><span>${t.duracao_final_min} min</span></div>
+    <div class="info-row"><span>Intervalo entre jogos</span><span>${t.intervalo_troca_min} min</span></div>
+    <div class="info-row"><span>Pontuação</span><span>${t.pontos_vitoria} · ${t.pontos_empate} · ${t.pontos_derrota}</span></div>
+    <div class="info-row"><span>Status</span><span>${t.status}</span></div>
+  `;
 }
 
 async function carregarParticipantes() {
   const { data: participantes } = await supabaseClient
-    .from('participantes')
-    .select('*')
-    .eq('torneio_id', torneioAtualId)
-    .order('criado_em', { ascending: true });
+    .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('criado_em', { ascending: true });
 
   const tbody = document.querySelector('#tabela-participantes tbody');
   tbody.innerHTML = '';
-  if (participantes) {
-    participantes.forEach((p) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${p.time_id ? '<span class="pill ativo">Sorteado</span>' : '<span class="pill pendente">Sem time</span>'}</td>`;
-      tbody.appendChild(tr);
-    });
-  }
+  (participantes || []).forEach((p) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${p.time_id ? '<span class="pill ativo">Sorteado</span>' : '<span class="pill pendente">Sem time</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
   return participantes || [];
 }
 
@@ -542,13 +671,9 @@ async function adicionarParticipante() {
   const nivel_tecnico = document.getElementById('part-nivel').value || null;
   const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
   const posicao = usaPosicao ? document.getElementById('part-posicao').value : null;
-
   if (!nome) { mostrarMsg('participantes-msg', 'Digite o nome do participante.', 'erro'); return; }
 
-  const { error } = await supabaseClient.from('participantes').insert({
-    torneio_id: torneioAtualId, nome, idade, nivel_tecnico, posicao,
-  });
-
+  const { error } = await supabaseClient.from('participantes').insert({ torneio_id: torneioAtualId, nome, idade, nivel_tecnico, posicao });
   if (error) { mostrarMsg('participantes-msg', error.message, 'erro'); return; }
 
   document.getElementById('part-nome').value = '';
@@ -567,18 +692,13 @@ function alternarTemaPersonalizado() {
 
 function montarNomesECores(tema, numTimesNecessarios) {
   let listaBase = [];
-
   if (tema === 'personalizado') {
     const texto = document.getElementById('sorteio-tema-personalizado').value.trim();
     listaBase = texto.split(',').map((n) => n.trim()).filter(Boolean).map((nome) => ({ nome, cor: '#7E9488' }));
   } else if (tema !== 'generico' && window.Chave.TEMAS_TIMES[tema]) {
     listaBase = window.Chave.TEMAS_TIMES[tema].times;
   }
-
-  // completa com nomes genéricos se a lista escolhida for menor que o
-  // número de times necessários (ex: 12 times mas só 10 seleções na lista)
-  const nomes = [];
-  const cores = [];
+  const nomes = [], cores = [];
   for (let i = 0; i < numTimesNecessarios; i++) {
     if (listaBase[i]) { nomes.push(listaBase[i].nome); cores.push(listaBase[i].cor); }
     else { nomes.push(`Time ${i + 1}`); cores.push('#7E9488'); }
@@ -590,7 +710,6 @@ async function rodarSorteio() {
   const tamanhoTime = parseInt(document.getElementById('sorteio-tamanho-time').value, 10);
   const participantes = await carregarParticipantes();
   const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
-
   if (participantes.length === 0) { mostrarMsg('sorteio-msg', 'Cadastre participantes antes de sortear.', 'erro'); return; }
 
   const numTimesEstimado = Math.floor(participantes.length / tamanhoTime);
@@ -606,12 +725,12 @@ async function rodarSorteio() {
   if (resultado.numTimes === 0) { mostrarMsg('sorteio-msg', 'Participantes insuficientes para formar 1 time.', 'erro'); return; }
 
   let html = avisos + '<div class="teams-grid">';
-  resultado.times.forEach((t, i) => {
+  resultado.times.forEach((t) => {
     html += `<div class="team-mini"><div class="team-mini-head"><span>${t.nome}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
     t.jogadores.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
-  html += '</div><button class="btn" style="margin-top:14px;" onclick="salvarSorteio()">Salvar sorteio</button>';
+  html += '</div><button class="btn full" onclick="salvarSorteio()">Salvar sorteio</button>';
 
   document.getElementById('sorteio-resultado').innerHTML = html;
   document.getElementById('sorteio-msg').innerHTML = '';
@@ -619,27 +738,15 @@ async function rodarSorteio() {
 
 async function salvarSorteio() {
   if (!ultimoResultadoSorteio) return;
-
-  // Se já existiam times de um sorteio anterior, apaga antes de criar os novos
-  // (senão fica duplicando times a cada "sortear de novo").
   const { error: erroLimpeza } = await supabaseClient.from('times').delete().eq('torneio_id', torneioAtualId);
   if (erroLimpeza) { mostrarMsg('sorteio-msg', `Erro ao limpar sorteio anterior: ${erroLimpeza.message}`, 'erro'); return; }
 
   for (const time of ultimoResultadoSorteio.times) {
-    const { data: novoTime, error: erroTime } = await supabaseClient
-      .from('times')
-      .insert({ torneio_id: torneioAtualId, nome: time.nome, cor: time.cor })
-      .select()
-      .single();
-
+    const { data: novoTime, error: erroTime } = await supabaseClient.from('times').insert({ torneio_id: torneioAtualId, nome: time.nome, cor: time.cor }).select().single();
     if (erroTime) { mostrarMsg('sorteio-msg', `Erro ao salvar time "${time.nome}": ${erroTime.message}`, 'erro'); return; }
 
     const idsJogadores = time.jogadores.map((j) => j.id);
-    const { error: erroUpdate } = await supabaseClient
-      .from('participantes')
-      .update({ time_id: novoTime.id })
-      .in('id', idsJogadores);
-
+    const { error: erroUpdate } = await supabaseClient.from('participantes').update({ time_id: novoTime.id }).in('id', idsJogadores);
     if (erroUpdate) { mostrarMsg('sorteio-msg', `Erro ao vincular jogadores do time "${time.nome}": ${erroUpdate.message}`, 'erro'); return; }
   }
 
@@ -649,16 +756,13 @@ async function salvarSorteio() {
   await carregarParticipantes();
 }
 
-// ---------------- GRUPOS ----------------
 async function sortearGrupos() {
   const numGrupos = parseInt(document.getElementById('grupos-numero').value, 10);
   const { data: times, error } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioAtualId);
-
   if (error) { mostrarMsg('grupos-msg', error.message, 'erro'); return; }
   if (!times || times.length === 0) { mostrarMsg('grupos-msg', 'Sorteie os times primeiro.', 'erro'); return; }
   if (numGrupos < 1) { mostrarMsg('grupos-msg', 'Número de grupos inválido.', 'erro'); return; }
 
-  // apaga grupos antigos (por causa do reset do sorteio) antes de recriar
   await supabaseClient.from('grupos').delete().eq('torneio_id', torneioAtualId);
 
   const embaralhados = [...times].sort(() => Math.random() - 0.5);
@@ -669,21 +773,18 @@ async function sortearGrupos() {
     const { data: novoGrupo, error: erroGrupo } = await supabaseClient.from('grupos').insert({ torneio_id: torneioAtualId, nome: g.nome }).select().single();
     if (erroGrupo) { mostrarMsg('grupos-msg', erroGrupo.message, 'erro'); return; }
     g.id = novoGrupo.id;
-
     const idsTimes = g.times.map((t) => t.id);
     const { error: erroUpdate } = await supabaseClient.from('times').update({ grupo_id: novoGrupo.id }).in('id', idsTimes);
     if (erroUpdate) { mostrarMsg('grupos-msg', erroUpdate.message, 'erro'); return; }
   }
 
   let html = '';
-  grupos.forEach((g) => {
-    html += `<div class="grupo-box"><h3>${g.nome}</h3>${g.times.map((t) => t.nome).join(', ')}</div>`;
-  });
+  grupos.forEach((g) => { html += `<div class="grupo-box"><h3>${g.nome}</h3>${g.times.map((t) => t.nome).join(', ')}</div>`; });
   document.getElementById('grupos-resultado').innerHTML = html;
   mostrarMsg('grupos-msg', 'Grupos sorteados e salvos.', 'ok');
+  await atualizarClassificacao();
 }
 
-// ---------------- CALENDÁRIO DE JOGOS ----------------
 async function gerarCalendario() {
   const { data: torneio, error: erroTorneio } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
   if (erroTorneio) { mostrarMsg('jogos-msg', erroTorneio.message, 'erro'); return; }
@@ -692,24 +793,15 @@ async function gerarCalendario() {
   if (erroGrupos) { mostrarMsg('jogos-msg', erroGrupos.message, 'erro'); return; }
   if (!grupos || grupos.length === 0) { mostrarMsg('jogos-msg', 'Sorteie os grupos primeiro.', 'erro'); return; }
 
-  // apaga jogos antigos antes de gerar de novo
   await supabaseClient.from('jogos').delete().eq('torneio_id', torneioAtualId).eq('fase', 'grupos');
 
-  const rodadasPorGrupo = grupos.map((g) => ({
-    grupoId: g.id,
-    rodadas: window.Chave.gerarRodadasRoundRobin(g.times.map((t) => t.id)),
-  }));
-
+  const rodadasPorGrupo = grupos.map((g) => ({ grupoId: g.id, rodadas: window.Chave.gerarRodadasRoundRobin(g.times.map((t) => t.id)) }));
   const maxRodadas = Math.max(...rodadasPorGrupo.map((g) => g.rodadas.length));
   const rodadasCombinadas = [];
   for (let i = 0; i < maxRodadas; i++) {
     const combinada = [];
     rodadasPorGrupo.forEach((g) => {
-      if (g.rodadas[i]) {
-        g.rodadas[i].forEach(([timeA, timeB]) => {
-          combinada.push({ fase: 'grupos', grupo_id: g.grupoId, rodada: i + 1, time_a_id: timeA, time_b_id: timeB });
-        });
-      }
+      if (g.rodadas[i]) g.rodadas[i].forEach(([timeA, timeB]) => combinada.push({ fase: 'grupos', grupo_id: g.grupoId, rodada: i + 1, time_a_id: timeA, time_b_id: timeB }));
     });
     rodadasCombinadas.push(combinada);
   }
@@ -728,8 +820,7 @@ async function gerarCalendario() {
   for (const jogo of jogosAgendados) {
     const { error } = await supabaseClient.from('jogos').insert({
       torneio_id: torneioAtualId, fase: jogo.fase, grupo_id: jogo.grupo_id, rodada: jogo.rodada,
-      time_a_id: jogo.time_a_id, time_b_id: jogo.time_b_id,
-      campo_numero: jogo.campo_numero, horario_previsto: jogo.horario_previsto,
+      time_a_id: jogo.time_a_id, time_b_id: jogo.time_b_id, campo_numero: jogo.campo_numero, horario_previsto: jogo.horario_previsto,
     });
     if (error) { mostrarMsg('jogos-msg', `Erro ao salvar jogo: ${error.message}`, 'erro'); return; }
   }
@@ -740,11 +831,8 @@ async function gerarCalendario() {
 
 async function carregarJogosEClassificacao() {
   const { data: jogos } = await supabaseClient
-    .from('jogos')
-    .select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
-    .eq('torneio_id', torneioAtualId)
-    .eq('fase', 'grupos')
-    .order('rodada', { ascending: true });
+    .from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
+    .eq('torneio_id', torneioAtualId).eq('fase', 'grupos').order('rodada', { ascending: true });
 
   const lista = document.getElementById('jogos-lista');
   lista.innerHTML = '';
@@ -755,11 +843,7 @@ async function carregarJogosEClassificacao() {
       <div class="meta">${j.grupos?.nome || ''} · ${j.horario_previsto?.slice(0,5) || ''} · Campo ${j.campo_numero}</div>
       <div class="confronto">
         <span class="time-nome">${j.time_a?.nome}</span>
-        <span class="placar">
-          <input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0">
-          <span>x</span>
-          <input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0">
-        </span>
+        <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
         <span class="time-nome direita">${j.time_b?.nome}</span>
       </div>
       <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
@@ -793,26 +877,28 @@ async function atualizarClassificacao() {
     const { classificacao, avisos } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {
       pontosVitoria: torneio?.pontos_vitoria, pontosEmpate: torneio?.pontos_empate, pontosDerrota: torneio?.pontos_derrota,
     });
-
     html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
-    classificacao.forEach((t) => {
-      html += `<tr><td>${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
-    });
+    classificacao.forEach((t) => { html += `<tr><td>${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
     html += '</table>';
     avisos.forEach((a) => { html += `<div class="msg aviso" style="margin-top:8px;">${a.mensagem}</div>`; });
     html += '</div>';
   });
-
   document.getElementById('classificacao-resultado').innerHTML = html;
 }
 
-// ---------------- SESSÃO EXISTENTE AO ABRIR A PÁGINA ----------------
+document.querySelectorAll('#pane-torneio .tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#pane-torneio .tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('#pane-torneio .pane').forEach((p) => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.pane).classList.add('active');
+  });
+});
+
 (async () => {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) {
-    await rotearUsuario();
-  }
+  if (session) await rotearUsuario();
 })();
 </script>
 </body>
