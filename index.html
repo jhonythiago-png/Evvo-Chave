@@ -90,9 +90,10 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .jogo-card input[type=number]{width:44px;text-align:center;padding:5px;flex-shrink:0;}
 .jogo-card .salvar-btn{margin-top:8px;width:100%;padding:6px;font-size:11px;}
 
-/* Desktop: aproveitar a largura, não deixar sobrando */
+/* Desktop: escala com o monitor (clamp = mínimo, ideal, máximo),
+   em vez de um teto fixo que sobra em monitores maiores */
 @media (min-width: 900px){
-  .card.wide{max-width:1180px;}
+  .card.wide{max-width:clamp(860px, 92vw, 1700px);}
   .torneio-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:26px;align-items:start;}
 }
 </style>
