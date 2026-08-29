@@ -42,6 +42,29 @@ const TEMAS_TIMES = {
     label: 'Genérico (Time 1, Time 2...)',
     times: null, // sinaliza pro código gerar "Time 1, Time 2..." dinamicamente
   },
+  clubes_brasileiros: {
+    label: 'Clubes Brasileiros',
+    times: [
+      { nome: 'Flamengo', cor: '#E2231A' },
+      { nome: 'Palmeiras', cor: '#006437' },
+      { nome: 'Corinthians', cor: '#1A1A1A' },
+      { nome: 'São Paulo', cor: '#FE0000' },
+      { nome: 'Santos', cor: '#2B2B2B' },
+      { nome: 'Grêmio', cor: '#0D80C4' },
+      { nome: 'Internacional', cor: '#E30613' },
+      { nome: 'Cruzeiro', cor: '#003DA5' },
+      { nome: 'Atlético-MG', cor: '#3D3D3D' },
+      { nome: 'Fluminense', cor: '#7A1F2B' },
+      { nome: 'Botafogo', cor: '#2B2B2B' },
+      { nome: 'Vasco da Gama', cor: '#1A1A1A' },
+      { nome: 'Bahia', cor: '#003DA5' },
+      { nome: 'Fortaleza', cor: '#1560BD' },
+      { nome: 'Athletico-PR', cor: '#C8102E' },
+      { nome: 'Vitória', cor: '#C8102E' },
+      { nome: 'Sport', cor: '#C8102E' },
+      { nome: 'Coritiba', cor: '#00693E' },
+    ],
+  },
 };
 
 if (typeof window !== 'undefined') {
