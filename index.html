@@ -95,7 +95,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 <!-- TROCA DE SENHA OBRIGATÓRIA -->
 <div class="card hidden" id="tela-trocar-senha">
   <h2 style="margin-bottom:14px;">Defina sua senha</h2>
-  <div class="msg aviso">Essa é sua senha temporária. Defina uma senha nova antes de continuar.</div>
+  <div class="msg aviso">Essa é sua senha temporária. Defina uma senha <strong>diferente</strong> da atual antes de continuar.</div>
   <label>Nova senha</label>
   <input type="password" id="nova-senha" placeholder="••••••••">
   <label>Confirme a nova senha</label>
@@ -271,7 +271,13 @@ async function trocarSenha() {
   if (novaSenha !== confirma) { mostrarMsg('trocar-senha-msg', 'As senhas não coincidem.', 'erro'); return; }
 
   const { error: erroSenha } = await supabaseClient.auth.updateUser({ password: novaSenha });
-  if (erroSenha) { mostrarMsg('trocar-senha-msg', erroSenha.message, 'erro'); return; }
+  if (erroSenha) {
+    const mensagem = erroSenha.message.includes('different from the old password')
+      ? 'A nova senha precisa ser diferente da senha temporária atual. Escolha uma senha diferente.'
+      : erroSenha.message;
+    mostrarMsg('trocar-senha-msg', mensagem, 'erro');
+    return;
+  }
 
   const { data: { user } } = await supabaseClient.auth.getUser();
   const { error: erroFlag } = await supabaseClient.from('usuarios').update({ senha_temporaria: false }).eq('auth_user_id', user.id);
