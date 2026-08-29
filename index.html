@@ -233,6 +233,17 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   </div>
 </div>
 
+<!-- PÁGINA PÚBLICA (sem login, acessada por link com ?t=slug) -->
+<div class="tela-simples hidden" id="tela-publica-view" style="align-items:flex-start;">
+  <div class="card wide" style="max-width:900px;">
+    <div class="brand" style="justify-content:flex-start;">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
+      <div class="brand-name">Chave</div>
+    </div>
+    <div id="publica-conteudo"></div>
+  </div>
+</div>
+
 <div id="app">
 
   <div class="mobile-topbar">
@@ -402,7 +413,10 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-publico">
-        <div class="painel em-construcao">Página pública (link compartilhável, sem login) chega numa próxima fase.</div>
+        <div class="painel" style="max-width:520px;">
+          <h3>Link compartilhável</h3>
+          <div id="publico-config"></div>
+        </div>
       </div>
     </div>
 
@@ -671,6 +685,123 @@ async function carregarInfoTorneio() {
     <div class="info-row"><span>Pontuação</span><span>${t.pontos_vitoria} · ${t.pontos_empate} · ${t.pontos_derrota}</span></div>
     <div class="info-row"><span>Status</span><span>${t.status}</span></div>
   `;
+  await carregarConfigPublico(t);
+}
+
+function slugSugerido(nome) {
+  return nome.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+async function carregarConfigPublico(torneio) {
+  const linkBase = `${location.origin}${location.pathname}`;
+  const div = document.getElementById('publico-config');
+  if (torneio.slug) {
+    const link = `${linkBase}?t=${torneio.slug}`;
+    div.innerHTML = `
+      <div class="msg ${torneio.pagina_publica ? 'ok' : 'aviso'}">${torneio.pagina_publica ? 'Página pública ativada.' : 'Página pública desativada — ninguém consegue ver pelo link.'}</div>
+      <div class="uid-box" style="margin-top:10px;">${link}</div>
+      <button class="btn secondary full" onclick="copiarLinkPublico('${link}')">Copiar link</button>
+      <button class="btn secondary full" onclick="window.open('${link}', '_blank')">Abrir em nova aba</button>
+      <button class="btn full" style="background:${torneio.pagina_publica ? 'var(--red)' : 'var(--pitch)'};" onclick="alternarPaginaPublica(${!torneio.pagina_publica})">${torneio.pagina_publica ? 'Desativar página pública' : 'Ativar página pública'}</button>
+    `;
+  } else {
+    div.innerHTML = `
+      <div class="msg aviso">Ainda não tem um link definido para esse torneio.</div>
+      <label>Endereço do link (só letras, números e traço)</label>
+      <input type="text" id="publico-slug-input" value="${slugSugerido(torneio.nome)}">
+      <button class="btn full" onclick="definirSlugPublico()">Gerar link</button>
+      <div id="publico-slug-msg"></div>
+    `;
+  }
+}
+
+async function definirSlugPublico() {
+  const slug = document.getElementById('publico-slug-input').value.trim().toLowerCase();
+  if (!slug) { mostrarMsg('publico-slug-msg', 'Digite um endereço válido.', 'erro'); return; }
+  const { error } = await supabaseClient.from('torneios').update({ slug }).eq('id', torneioAtualId);
+  if (error) {
+    const msg = error.message.includes('duplicate') ? 'Esse endereço já está em uso por outro torneio. Tente outro.' : error.message;
+    mostrarMsg('publico-slug-msg', msg, 'erro');
+    return;
+  }
+  await carregarInfoTorneio();
+}
+
+async function alternarPaginaPublica(novoValor) {
+  await supabaseClient.from('torneios').update({ pagina_publica: novoValor }).eq('id', torneioAtualId);
+  await carregarInfoTorneio();
+}
+
+function copiarLinkPublico(link) {
+  navigator.clipboard.writeText(link).then(() => mostrarMsg('participantes-msg', '', 'ok'));
+  alert('Link copiado: ' + link);
+}
+
+// ---------------- PÁGINA PÚBLICA (sem login, via ?t=slug) ----------------
+async function renderizarPaginaPublica(slug) {
+  document.getElementById('publica-conteudo').innerHTML = '<div class="em-construcao">Carregando...</div>';
+
+  const { data: torneios, error } = await supabaseClient.from('torneios').select('*').eq('slug', slug);
+  const torneio = torneios && torneios[0];
+
+  if (error || !torneio) {
+    document.getElementById('publica-conteudo').innerHTML = '<h2 style="margin-top:20px;">Torneio não encontrado</h2><p style="color:var(--muted);font-size:13px;margin-top:8px;">Verifique se o link está certo.</p>';
+    return;
+  }
+
+  const { data: gruposCrus } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneio.id).order('nome', { ascending: true });
+  const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneio.id);
+  const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos');
+  const { data: jogosMata } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+
+  const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome || '—';
+  const grupos = (gruposCrus || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
+
+  let html = `
+    <div class="tt-badge" style="margin-top:20px;"><span class="dot" style="background:${torneio.status === 'encerrado' ? 'var(--amber)' : 'var(--pitch)'};"></span> ${torneio.esporte} · ${torneio.status}</div>
+    <div class="tt-title">${torneio.nome}</div>
+    <div class="tt-sub">Data: ${torneio.data_evento}</div>
+    <div class="divider"></div>
+  `;
+
+  html += '<h3>Classificação</h3>';
+  grupos.forEach((g) => {
+    const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
+    const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
+    html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
+      <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
+    classificacao.forEach((t) => { html += `<tr><td>${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
+    html += '</table></div>';
+  });
+
+  html += '<div class="divider"></div><h3>Jogos</h3>';
+  (jogosGrupos || []).sort((a, b) => (a.rodada || 0) - (b.rodada || 0)).forEach((j) => {
+    const placar = j.status === 'encerrado' ? `${j.gols_a} x ${j.gols_b}` : 'a definir';
+    html += `<div class="jogo-card"><div class="meta">Rodada ${j.rodada || '—'} · ${j.horario_previsto?.slice(0,5) || ''}</div>
+      <div class="confronto"><span class="time-nome">${nomeTime(j.time_a_id)}</span><span class="placar mono">${placar}</span><span class="time-nome direita">${nomeTime(j.time_b_id)}</span></div></div>`;
+  });
+
+  if (jogosMata && jogosMata.length > 0) {
+    const rotulo = { semifinal: 'Semifinal', terceiro_lugar: '3º lugar', final: 'Final' };
+    html += '<div class="divider"></div><h3>Mata-mata</h3>';
+    jogosMata.forEach((j) => {
+      const placar = j.status === 'encerrado' ? `${j.gols_a} x ${j.gols_b}${j.penaltis_a != null ? ` (pên. ${j.penaltis_a}-${j.penaltis_b})` : ''}` : 'a definir';
+      html += `<div class="jogo-card"><div class="meta">${rotulo[j.fase]}</div>
+        <div class="confronto"><span class="time-nome">${nomeTime(j.time_a_id)}</span><span class="placar mono">${placar}</span><span class="time-nome direita">${nomeTime(j.time_b_id)}</span></div></div>`;
+
+      if (j.fase === 'final' && j.status === 'encerrado') {
+        let vencedor = null;
+        if (j.gols_a > j.gols_b) vencedor = j.time_a_id;
+        else if (j.gols_b > j.gols_a) vencedor = j.time_b_id;
+        else if (j.penaltis_a != null) vencedor = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
+        if (vencedor) html = html.replace('<h3>Mata-mata</h3>', `<h3>Mata-mata</h3><div class="painel" style="text-align:center;border-color:var(--amber-dim);margin-bottom:16px;"><h3 style="margin-bottom:6px;">🏆 Campeão</h3><div class="tt-title" style="margin:0;">${nomeTime(vencedor)}</div></div>`);
+      }
+    });
+  }
+
+  document.getElementById('publica-conteudo').innerHTML = html;
 }
 
 async function carregarParticipantes() {
@@ -1116,6 +1247,15 @@ document.querySelectorAll('#pane-torneio .tab').forEach((tab) => {
 });
 
 (async () => {
+  const params = new URLSearchParams(location.search);
+  const slugPublico = params.get('t');
+  if (slugPublico) {
+    document.getElementById('tela-login').classList.add('hidden');
+    document.getElementById('tela-publica-view').classList.remove('hidden');
+    await renderizarPaginaPublica(slugPublico);
+    return;
+  }
+
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) await rotearUsuario();
 })();
