@@ -382,7 +382,16 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-matamata">
-        <div class="painel em-construcao">Mata-mata chega numa próxima fase — semifinais, pênaltis e campeão.</div>
+        <div class="painel" style="max-width:480px;margin-bottom:20px;">
+          <h3>Gerar mata-mata</h3>
+          <label>Classificados por grupo</label>
+          <input type="number" id="matamata-avancam" value="2" min="1">
+          <div class="msg aviso" style="margin-top:10px;">O total de classificados (grupos × avançam por grupo) precisa dar <strong>2</strong> (direto pra final) ou <strong>4</strong> (semifinais + final + 3º lugar).</div>
+          <button class="btn secondary full" onclick="gerarMataMata()">Gerar mata-mata</button>
+          <div id="matamata-msg"></div>
+        </div>
+        <div id="matamata-campeao"></div>
+        <div id="matamata-lista"></div>
       </div>
 
       <div class="pane" id="tab-stats">
@@ -625,6 +634,7 @@ async function abrirTorneio(id, nome, esporte, status) {
   await carregarInfoTorneio();
   await carregarParticipantes();
   await carregarJogosEClassificacao();
+  await carregarMataMata();
 
   document.querySelectorAll('#pane-torneio .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('#pane-torneio .pane').forEach((p, i) => p.classList.toggle('active', i === 0));
@@ -885,6 +895,171 @@ async function atualizarClassificacao() {
     html += '</div>';
   });
   document.getElementById('classificacao-resultado').innerHTML = html;
+}
+
+// ---------------- CLASSIFICAÇÃO POR GRUPO (reaproveitada pelo mata-mata) ----------------
+async function obterClassificacaoPorGrupo() {
+  const { data: torneio } = await supabaseClient.from('torneios').select('pontos_vitoria, pontos_empate, pontos_derrota').eq('id', torneioAtualId).single();
+  const { data: grupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
+  const { data: jogosEncerrados } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioAtualId).eq('fase', 'grupos').eq('status', 'encerrado');
+
+  return (grupos || []).map((g) => {
+    const jogosDoGrupo = (jogosEncerrados || []).filter((j) => j.grupo_id === g.id);
+    const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {
+      pontosVitoria: torneio?.pontos_vitoria, pontosEmpate: torneio?.pontos_empate, pontosDerrota: torneio?.pontos_derrota,
+    });
+    return { grupo: g.nome, classificacao };
+  });
+}
+
+// ---------------- MATA-MATA ----------------
+async function gerarMataMata() {
+  const avancamPorGrupo = parseInt(document.getElementById('matamata-avancam').value, 10);
+  const gruposClassificacao = await obterClassificacaoPorGrupo();
+
+  if (gruposClassificacao.length === 0) { mostrarMsg('matamata-msg', 'Sorteie os grupos e gere o calendário primeiro.', 'erro'); return; }
+
+  const classificados = gruposClassificacao.map((g) => g.classificacao.slice(0, avancamPorGrupo).map((t) => t.time_id));
+  const total = classificados.reduce((s, arr) => s + arr.length, 0);
+
+  if (total !== 2 && total !== 4) {
+    mostrarMsg('matamata-msg', `O total de classificados deu ${total}. Ajuste para fechar em 2 ou 4.`, 'erro');
+    return;
+  }
+
+  await supabaseClient.from('jogos').delete().eq('torneio_id', torneioAtualId).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+
+  let confrontos = [];
+  if (total === 2) {
+    confrontos = [{ fase: 'final', time_a_id: classificados[0][0], time_b_id: classificados[classificados.length > 1 ? 1 : 0][classificados.length > 1 ? 0 : 1] }];
+  } else if (classificados.length === 2 && avancamPorGrupo === 2) {
+    // 2 grupos, 2 classificados cada -> clássico 1ºA x 2ºB / 1ºB x 2ºA
+    confrontos = [
+      { fase: 'semifinal', time_a_id: classificados[0][0], time_b_id: classificados[1][1] },
+      { fase: 'semifinal', time_a_id: classificados[1][0], time_b_id: classificados[0][1] },
+    ];
+  } else if (classificados.length === 1 && avancamPorGrupo === 4) {
+    // 1 grupo, top 4 -> 1ºx4º / 2ºx3º
+    const [a, b, c, d] = classificados[0];
+    confrontos = [{ fase: 'semifinal', time_a_id: a, time_b_id: d }, { fase: 'semifinal', time_a_id: b, time_b_id: c }];
+  } else {
+    // 4 grupos, 1 classificado cada, ou outra combinação -> pareamento simples em sequência
+    const todos = classificados.flat();
+    confrontos = [
+      { fase: 'semifinal', time_a_id: todos[0], time_b_id: todos[1] },
+      { fase: 'semifinal', time_a_id: todos[2], time_b_id: todos[3] },
+    ];
+  }
+
+  for (const c of confrontos) {
+    const { error } = await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id });
+    if (error) { mostrarMsg('matamata-msg', error.message, 'erro'); return; }
+  }
+
+  mostrarMsg('matamata-msg', total === 2 ? 'Final gerada direto (2 classificados).' : 'Semifinais geradas.', 'ok');
+  await carregarMataMata();
+}
+
+function ganhador(jogo) {
+  if (jogo.status !== 'encerrado') return null;
+  if (jogo.gols_a > jogo.gols_b) return jogo.time_a_id;
+  if (jogo.gols_b > jogo.gols_a) return jogo.time_b_id;
+  if (jogo.penaltis_a != null && jogo.penaltis_b != null) {
+    return jogo.penaltis_a > jogo.penaltis_b ? jogo.time_a_id : jogo.time_b_id;
+  }
+  return null; // empate sem pênaltis lançados ainda
+}
+
+function perdedor(jogo) {
+  const g = ganhador(jogo);
+  if (!g) return null;
+  return g === jogo.time_a_id ? jogo.time_b_id : jogo.time_a_id;
+}
+
+async function carregarMataMata() {
+  const { data: jogos } = await supabaseClient
+    .from('jogos')
+    .select('*, time_a:time_a_id(nome), time_b:time_b_id(nome)')
+    .eq('torneio_id', torneioAtualId)
+    .in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+
+  const lista = document.getElementById('matamata-lista');
+  const campeaoDiv = document.getElementById('matamata-campeao');
+  lista.innerHTML = '';
+  campeaoDiv.innerHTML = '';
+
+  const rotulo = { semifinal: 'Semifinal', terceiro_lugar: '3º lugar', final: 'Final' };
+  (jogos || []).forEach((j) => {
+    const empatado = j.status === 'encerrado' && j.gols_a === j.gols_b && (j.penaltis_a == null || j.penaltis_b == null);
+    const div = document.createElement('div');
+    div.className = 'jogo-card';
+    div.innerHTML = `
+      <div class="meta">${rotulo[j.fase] || j.fase}</div>
+      <div class="confronto">
+        <span class="time-nome">${j.time_a?.nome}</span>
+        <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
+        <span class="time-nome direita">${j.time_b?.nome}</span>
+      </div>
+      ${empatado || j.penaltis_a != null ? `
+      <div class="confronto" style="margin-top:8px;">
+        <span class="time-nome" style="color:var(--amber);font-size:11px;">Pênaltis</span>
+        <span class="placar"><input type="number" min="0" id="pen-a-${j.id}" value="${j.penaltis_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="pen-b-${j.id}" value="${j.penaltis_b ?? ''}" placeholder="0"></span>
+        <span></span>
+      </div>` : ''}
+      <button class="btn secondary salvar-btn" onclick="lancarPlacarMataMata('${j.id}')">Salvar placar</button>
+    `;
+    lista.appendChild(div);
+
+    if (j.fase === 'final' && ganhador(j)) {
+      const nomeCampeao = ganhador(j) === j.time_a_id ? j.time_a?.nome : j.time_b?.nome;
+      campeaoDiv.innerHTML = `<div class="painel" style="text-align:center;border-color:var(--amber-dim);margin-bottom:16px;"><h3 style="margin-bottom:6px;">🏆 Campeão</h3><div class="tt-title" style="margin:0;">${nomeCampeao}</div></div>`;
+    }
+  });
+}
+
+async function lancarPlacarMataMata(jogoId) {
+  const golsA = parseInt(document.getElementById(`gols-a-${jogoId}`).value, 10);
+  const golsB = parseInt(document.getElementById(`gols-b-${jogoId}`).value, 10);
+  if (isNaN(golsA) || isNaN(golsB)) { mostrarMsg('matamata-msg', 'Preencha os dois placares.', 'erro'); return; }
+
+  const penAInput = document.getElementById(`pen-a-${jogoId}`);
+  const penBInput = document.getElementById(`pen-b-${jogoId}`);
+  const penaltisA = penAInput && penAInput.value !== '' ? parseInt(penAInput.value, 10) : null;
+  const penaltisB = penBInput && penBInput.value !== '' ? parseInt(penBInput.value, 10) : null;
+
+  if (golsA === golsB && (penaltisA == null || penaltisB == null)) {
+    mostrarMsg('matamata-msg', 'Empatou — preencha o placar dos pênaltis pra decidir quem avança.', 'aviso');
+    await carregarMataMata();
+    // reabre os campos já preenchidos com o placar normal, mostrando os campos de pênaltis
+    document.getElementById(`gols-a-${jogoId}`).value = golsA;
+    document.getElementById(`gols-b-${jogoId}`).value = golsB;
+    return;
+  }
+
+  const { error } = await supabaseClient.from('jogos').update({
+    gols_a: golsA, gols_b: golsB, status: 'encerrado', penaltis_a: penaltisA, penaltis_b: penaltisB,
+  }).eq('id', jogoId);
+  if (error) { mostrarMsg('matamata-msg', error.message, 'erro'); return; }
+
+  mostrarMsg('matamata-msg', 'Placar salvo.', 'ok');
+  await avancarMataMataSeNecessario();
+  await carregarMataMata();
+}
+
+async function avancarMataMataSeNecessario() {
+  const { data: jogos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioAtualId).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+  const semis = (jogos || []).filter((j) => j.fase === 'semifinal');
+  if (semis.length !== 2) return;
+
+  const ambasDecididas = semis.every((j) => ganhador(j) != null);
+  const jaTemFinal = (jogos || []).some((j) => j.fase === 'final');
+  if (!ambasDecididas || jaTemFinal) return;
+
+  const vencedores = semis.map(ganhador);
+  const perdedores = semis.map(perdedor);
+
+  await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] });
+  await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'terceiro_lugar', time_a_id: perdedores[0], time_b_id: perdedores[1] });
 }
 
 document.querySelectorAll('#pane-torneio .tab').forEach((tab) => {
