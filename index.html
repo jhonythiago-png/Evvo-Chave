@@ -309,6 +309,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
           <div class="tt-sub" id="torneio-detalhe-sub"></div>
         </div>
       </div>
+      <div id="torneio-abrir-erro"></div>
 
       <div class="tabs">
         <div class="tab active" data-pane="tab-visao">Visão geral</div>
@@ -654,13 +655,27 @@ async function abrirTorneio(id, nome, esporte, status) {
   document.getElementById('part-posicao').style.display = usaPosicao ? 'block' : 'none';
   document.getElementById('sorteio-resultado').innerHTML = '';
   document.getElementById('sorteio-msg').innerHTML = '';
+  document.getElementById('torneio-abrir-erro').innerHTML = '';
 
-  await carregarListaTorneios();
-  await carregarInfoTorneio();
-  await carregarParticipantes();
-  await carregarGrupos();
-  await carregarJogosEClassificacao();
-  await carregarMataMata();
+  // Cada carregamento roda isolado — se um falhar, os outros continuam, e o
+  // torneio abre mesmo assim (com o que deu certo), em vez de travar tudo.
+  const tarefas = [
+    ['lista de torneios', carregarListaTorneios],
+    ['informações', carregarInfoTorneio],
+    ['participantes', carregarParticipantes],
+    ['grupos', carregarGrupos],
+    ['jogos e classificação', carregarJogosEClassificacao],
+    ['mata-mata', carregarMataMata],
+  ];
+  const erros = [];
+  for (const [nomeTarefa, fn] of tarefas) {
+    try { await fn(); }
+    catch (e) { erros.push(`${nomeTarefa}: ${e.message}`); console.error(nomeTarefa, e); }
+  }
+
+  if (erros.length > 0) {
+    document.getElementById('torneio-abrir-erro').innerHTML = `<div class="msg erro">Alguns dados não carregaram: ${erros.join(' · ')}</div>`;
+  }
 
   document.querySelectorAll('#pane-torneio .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('#pane-torneio .pane').forEach((p, i) => p.classList.toggle('active', i === 0));
@@ -743,14 +758,24 @@ function copiarLinkPublico(link) {
 async function renderizarPaginaPublica(slug) {
   document.getElementById('publica-conteudo').innerHTML = '<div class="em-construcao">Carregando...</div>';
 
-  const { data: torneios, error } = await supabaseClient.from('torneios').select('*').eq('slug', slug);
-  const torneio = torneios && torneios[0];
+  try {
+    const { data: torneios, error } = await supabaseClient.from('torneios').select('*').eq('slug', slug);
+    if (error) throw error;
+    const torneio = torneios && torneios[0];
 
-  if (error || !torneio) {
-    document.getElementById('publica-conteudo').innerHTML = '<h2 style="margin-top:20px;">Torneio não encontrado</h2><p style="color:var(--muted);font-size:13px;margin-top:8px;">Verifique se o link está certo.</p>';
-    return;
+    if (!torneio) {
+      document.getElementById('publica-conteudo').innerHTML = '<h2 style="margin-top:20px;">Torneio não encontrado</h2><p style="color:var(--muted);font-size:13px;margin-top:8px;">Verifique se o link está certo.</p>';
+      return;
+    }
+
+    await montarConteudoPublico(torneio);
+  } catch (e) {
+    console.error('Erro na página pública:', e);
+    document.getElementById('publica-conteudo').innerHTML = `<h2 style="margin-top:20px;">Erro ao carregar</h2><p style="color:var(--red);font-size:13px;margin-top:8px;">${e.message || e}</p>`;
   }
+}
 
+async function montarConteudoPublico(torneio) {
   const { data: gruposCrus } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneio.id).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneio.id);
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos');
