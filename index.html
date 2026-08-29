@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Chave — Gestão de Torneios</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --void:#0A0F0D; --panel:#12211B; --panel-2:#182B22; --line:#22362B; --line-soft:#1A2A22;
+  --chalk:#EEF1EA; --muted:#7E9488; --muted-2:#54685D;
+  --pitch:#22A567; --pitch-dim:#1B7E51; --amber:#FFB627; --amber-dim:#9C7419; --red:#E2574C;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--void);color:var(--chalk);font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.oswald{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.03em;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;width:100%;max-width:420px;}
+.card.wide{max-width:720px;}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;justify-content:center;}
+.brand-mark{width:28px;height:28px;border-radius:6px;background:var(--pitch);display:flex;align-items:center;justify-content:center;}
+.brand-mark svg{width:15px;height:15px;stroke:var(--void);}
+.brand-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:0.03em;}
+
+h2{font-family:'Oswald',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);margin-bottom:14px;font-weight:500;}
+
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;margin-top:12px;}
+label:first-child{margin-top:0;}
+input,select{
+  width:100%;background:var(--void);border:1px solid var(--line);border-radius:6px;
+  padding:9px 11px;color:var(--chalk);font-size:13px;font-family:'Inter',sans-serif;
+}
+input:focus,select:focus{outline:none;border-color:var(--pitch-dim);}
+
+.btn{
+  width:100%;margin-top:18px;background:var(--pitch);color:var(--void);border:none;border-radius:6px;
+  padding:11px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;
+  letter-spacing:0.03em;cursor:pointer;
+}
+.btn:hover{background:#2ABE79;}
+.btn.secondary{background:transparent;border:1px solid var(--line);color:var(--chalk);margin-top:8px;}
+.btn.small{width:auto;margin-top:0;padding:6px 12px;font-size:11px;}
+
+.link-toggle{text-align:center;margin-top:14px;font-size:12px;color:var(--muted);cursor:pointer;}
+.link-toggle:hover{color:var(--chalk);}
+
+.msg{font-size:12px;padding:9px 11px;border-radius:6px;margin-top:12px;}
+.msg.erro{background:rgba(226,87,76,0.12);color:var(--red);}
+.msg.ok{background:rgba(34,165,103,0.12);color:var(--pitch);}
+.msg.aviso{background:rgba(255,182,39,0.12);color:var(--amber);}
+
+.hidden{display:none !important;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;}
+th{text-align:left;font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.04em;padding:0 8px 8px;}
+td{padding:9px 8px;border-top:1px solid var(--line-soft);}
+.pill{font-size:10px;padding:3px 8px;border-radius:20px;text-transform:uppercase;}
+.pill.ativo{background:rgba(34,165,103,0.14);color:var(--pitch);}
+.pill.pendente{background:rgba(255,182,39,0.14);color:var(--amber);}
+
+.uid-box{background:var(--void);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;margin-top:8px;}
+.divider{border-top:1px solid var(--line);margin:20px 0;}
+.top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.sair{font-size:12px;color:var(--muted);cursor:pointer;}
+.sair:hover{color:var(--chalk);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN / CADASTRO -->
+<div class="card" id="tela-login">
+  <div class="brand">
+    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
+    <div class="brand-name">Chave</div>
+  </div>
+  <h2 id="login-titulo">Entrar</h2>
+  <label>E-mail</label>
+  <input type="email" id="login-email" placeholder="seu@email.com">
+  <label>Senha</label>
+  <input type="password" id="login-senha" placeholder="••••••••">
+  <button class="btn" id="btn-login">Entrar</button>
+  <div class="link-toggle" id="toggle-cadastro">Ainda não tem conta? Criar conta</div>
+  <div id="login-msg"></div>
+</div>
+
+<!-- CARREGANDO -->
+<div class="card hidden" id="tela-carregando" style="text-align:center;">
+  <div class="oswald" style="color:var(--muted);font-size:13px;">Carregando...</div>
+</div>
+
+<!-- AGUARDANDO LIBERAÇÃO -->
+<div class="card hidden" id="tela-pendente">
+  <div class="top-row"><h2 style="margin:0;">Aguardando liberação</h2><span class="sair" onclick="sair()">Sair</span></div>
+  <div class="msg aviso">Sua conta ainda não foi liberada pelo administrador do sistema (ou sua organização ainda não foi vinculada).</div>
+  <label>Seu UID (envie para quem for liberar seu acesso):</label>
+  <div class="uid-box" id="meu-uid">—</div>
+</div>
+
+<!-- PAINEL MASTER -->
+<div class="card wide hidden" id="tela-master">
+  <div class="top-row"><h2 style="margin:0;">Painel Master</h2><span class="sair" onclick="sair()">Sair</span></div>
+
+  <h2>Organizadores</h2>
+  <table id="tabela-organizadores"><tbody></tbody></table>
+
+  <div class="divider"></div>
+
+  <h2>Criar novo organizador</h2>
+  <label>Nome da organização</label>
+  <input type="text" id="org-nome" placeholder="Ex: Igreja Betel">
+  <label>E-mail da organização</label>
+  <input type="email" id="org-email" placeholder="contato@organizacao.com">
+  <div class="divider"></div>
+  <label>Nome do admin responsável</label>
+  <input type="text" id="org-admin-nome" placeholder="Nome de quem vai administrar">
+  <label>E-mail do admin (precisa já ter criado conta em "Criar conta")</label>
+  <input type="email" id="org-admin-email" placeholder="admin@organizacao.com">
+  <label>UID do admin (peça para ele te enviar, aparece na tela dele)</label>
+  <input type="text" id="org-admin-uid" placeholder="Ex: 274ceff4-d4d5-...">
+  <button class="btn" onclick="criarOrganizador()">Criar organizador + vincular admin</button>
+  <div id="master-msg"></div>
+</div>
+
+<!-- PAINEL ADMIN (organizador liberado) -->
+<div class="card wide hidden" id="tela-admin">
+  <div class="top-row"><h2 style="margin:0;" id="admin-org-nome">Meus torneios</h2><span class="sair" onclick="sair()">Sair</span></div>
+
+  <table id="tabela-torneios"><tbody></tbody></table>
+
+  <div class="divider"></div>
+
+  <h2>Criar novo torneio</h2>
+  <label>Nome do torneio</label>
+  <input type="text" id="torneio-nome" placeholder="Ex: 3º Torneio Betel de Futebol Suíço">
+  <label>Esporte</label>
+  <select id="torneio-esporte">
+    <option value="futebol">Futebol</option>
+    <option value="volei">Vôlei</option>
+    <option value="basquete">Basquete</option>
+    <option value="tenis">Tênis</option>
+    <option value="beach_tenis">Beach Tênis</option>
+  </select>
+  <label>Data do evento</label>
+  <input type="date" id="torneio-data">
+  <button class="btn" onclick="criarTorneio()">Criar torneio</button>
+  <div id="admin-msg"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://amvhlrumeeghahlnangz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtdmhscnVtZWVnaGFobG5hbmd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5NDIzMzAsImV4cCI6MjEwMzUxODMzMH0.ANAQOifxNFoVgAhEV48zg-G0RPSFvQPjhvIfK5Gg9bs';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let modoCadastro = false;
+let organizadorAtualId = null;
+
+function mostrarTela(id) {
+  ['tela-login','tela-carregando','tela-pendente','tela-master','tela-admin'].forEach((t) => {
+    document.getElementById(t).classList.toggle('hidden', t !== id);
+  });
+}
+
+function mostrarMsg(elId, texto, tipo) {
+  document.getElementById(elId).innerHTML = `<div class="msg ${tipo}">${texto}</div>`;
+}
+
+// ---------------- LOGIN / CADASTRO ----------------
+document.getElementById('toggle-cadastro').addEventListener('click', () => {
+  modoCadastro = !modoCadastro;
+  document.getElementById('login-titulo').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  document.getElementById('btn-login').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  document.getElementById('toggle-cadastro').textContent = modoCadastro ? 'Já tem conta? Entrar' : 'Ainda não tem conta? Criar conta';
+});
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  if (!email || !senha) { mostrarMsg('login-msg', 'Preencha e-mail e senha.', 'erro'); return; }
+
+  if (modoCadastro) {
+    const { data, error } = await supabase.auth.signUp({ email, password: senha });
+    if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
+    if (data.session) {
+      await rotearUsuario();
+    } else {
+      mostrarMsg('login-msg', 'Conta criada! Verifique seu e-mail para confirmar, depois faça login.', 'ok');
+    }
+  } else {
+    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
+    await rotearUsuario();
+  }
+});
+
+function sair() {
+  supabase.auth.signOut().then(() => location.reload());
+}
+
+// ---------------- ROTEAMENTO PÓS-LOGIN ----------------
+async function rotearUsuario() {
+  mostrarTela('tela-carregando');
+
+  const { data: masterCheck } = await supabase.rpc('eh_master');
+  if (masterCheck === true) {
+    await carregarPainelMaster();
+    return;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: usuarioRows } = await supabase
+    .from('usuarios')
+    .select('organizador_id, organizadores(nome, ativo)')
+    .eq('auth_user_id', user.id);
+
+  if (!usuarioRows || usuarioRows.length === 0) {
+    document.getElementById('meu-uid').textContent = user.id;
+    mostrarTela('tela-pendente');
+    return;
+  }
+
+  const vinculo = usuarioRows[0];
+  if (!vinculo.organizadores || !vinculo.organizadores.ativo) {
+    document.getElementById('meu-uid').textContent = user.id;
+    mostrarTela('tela-pendente');
+    return;
+  }
+
+  organizadorAtualId = vinculo.organizador_id;
+  document.getElementById('admin-org-nome').textContent = vinculo.organizadores.nome;
+  await carregarPainelAdmin();
+}
+
+// ---------------- PAINEL MASTER ----------------
+async function carregarPainelMaster() {
+  const { data: orgs, error } = await supabase.from('organizadores').select('*').order('criado_em', { ascending: false });
+  const tbody = document.querySelector('#tabela-organizadores tbody');
+  tbody.innerHTML = '';
+  if (orgs) {
+    orgs.forEach((o) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${o.nome}</td>
+        <td>${o.email}</td>
+        <td><span class="pill ${o.ativo ? 'ativo' : 'pendente'}">${o.ativo ? 'Ativo' : 'Pendente'}</span></td>
+        <td><button class="btn small secondary" onclick="alternarAtivo('${o.id}', ${o.ativo})">${o.ativo ? 'Desativar' : 'Liberar'}</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  mostrarTela('tela-master');
+}
+
+async function alternarAtivo(id, ativoAtual) {
+  const { error } = await supabase.from('organizadores').update({ ativo: !ativoAtual }).eq('id', id);
+  if (error) { mostrarMsg('master-msg', error.message, 'erro'); return; }
+  await carregarPainelMaster();
+}
+
+async function criarOrganizador() {
+  const nome = document.getElementById('org-nome').value.trim();
+  const email = document.getElementById('org-email').value.trim();
+  const adminNome = document.getElementById('org-admin-nome').value.trim();
+  const adminEmail = document.getElementById('org-admin-email').value.trim();
+  const adminUid = document.getElementById('org-admin-uid').value.trim();
+
+  if (!nome || !email || !adminNome || !adminEmail || !adminUid) {
+    mostrarMsg('master-msg', 'Preencha todos os campos.', 'erro');
+    return;
+  }
+
+  const { data: org, error: erroOrg } = await supabase
+    .from('organizadores')
+    .insert({ nome, email, ativo: true })
+    .select()
+    .single();
+
+  if (erroOrg) { mostrarMsg('master-msg', erroOrg.message, 'erro'); return; }
+
+  const { error: erroUsuario } = await supabase
+    .from('usuarios')
+    .insert({ organizador_id: org.id, auth_user_id: adminUid, nome: adminNome, email: adminEmail });
+
+  if (erroUsuario) { mostrarMsg('master-msg', erroUsuario.message, 'erro'); return; }
+
+  mostrarMsg('master-msg', `Organizador "${nome}" criado e admin vinculado com sucesso.`, 'ok');
+  ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-uid'].forEach((id) => document.getElementById(id).value = '');
+  await carregarPainelMaster();
+}
+
+// ---------------- PAINEL ADMIN ----------------
+async function carregarPainelAdmin() {
+  const { data: torneios } = await supabase
+    .from('torneios')
+    .select('*')
+    .eq('organizador_id', organizadorAtualId)
+    .order('criado_em', { ascending: false });
+
+  const tbody = document.querySelector('#tabela-torneios tbody');
+  tbody.innerHTML = '';
+  if (torneios) {
+    torneios.forEach((t) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${t.nome}</td><td>${t.esporte}</td><td>${t.data_evento}</td><td><span class="pill ${t.status === 'encerrado' ? 'ativo' : 'pendente'}">${t.status}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  mostrarTela('tela-admin');
+}
+
+async function criarTorneio() {
+  const nome = document.getElementById('torneio-nome').value.trim();
+  const esporte = document.getElementById('torneio-esporte').value;
+  const data_evento = document.getElementById('torneio-data').value;
+
+  if (!nome || !data_evento) { mostrarMsg('admin-msg', 'Preencha nome e data.', 'erro'); return; }
+
+  const { error } = await supabase.from('torneios').insert({
+    organizador_id: organizadorAtualId,
+    nome, esporte, data_evento,
+  });
+
+  if (error) { mostrarMsg('admin-msg', error.message, 'erro'); return; }
+
+  mostrarMsg('admin-msg', 'Torneio criado com sucesso.', 'ok');
+  document.getElementById('torneio-nome').value = '';
+  document.getElementById('torneio-data').value = '';
+  await carregarPainelAdmin();
+}
+
+// ---------------- SESSÃO EXISTENTE AO ABRIR A PÁGINA ----------------
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await rotearUsuario();
+  }
+})();
+</script>
+</body>
+</html>
