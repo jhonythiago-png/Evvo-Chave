@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/sorteio.js"></script>
+<script src="js/temas-times.js"></script>
 <script src="js/confrontos.js"></script>
 <script src="js/cronograma.js"></script>
 <script src="js/classificacao.js"></script>
@@ -212,6 +213,17 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <h2>Sorteio</h2>
   <label>Tamanho do time</label>
   <input type="number" id="sorteio-tamanho-time" value="8" min="1">
+  <label>Nomes dos times</label>
+  <select id="sorteio-tema" onchange="alternarTemaPersonalizado()">
+    <option value="generico">Genérico (Time 1, Time 2...)</option>
+    <option value="sulamericano">Seleções Sul-Americanas</option>
+    <option value="selecoes_copa">Seleções (Copa do Mundo)</option>
+    <option value="personalizado">Personalizado (eu digito)</option>
+  </select>
+  <div id="sorteio-tema-personalizado-wrap" class="hidden">
+    <label>Nomes separados por vírgula</label>
+    <input type="text" id="sorteio-tema-personalizado" placeholder="Ex: Flamengo, Palmeiras, Corinthians, São Paulo">
+  </div>
   <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
   <div id="sorteio-msg"></div>
   <div id="sorteio-resultado"></div>
@@ -532,6 +544,32 @@ async function adicionarParticipante() {
 
 let ultimoResultadoSorteio = null;
 
+function alternarTemaPersonalizado() {
+  const tema = document.getElementById('sorteio-tema').value;
+  document.getElementById('sorteio-tema-personalizado-wrap').classList.toggle('hidden', tema !== 'personalizado');
+}
+
+function montarNomesECores(tema, numTimesNecessarios) {
+  let listaBase = [];
+
+  if (tema === 'personalizado') {
+    const texto = document.getElementById('sorteio-tema-personalizado').value.trim();
+    listaBase = texto.split(',').map((n) => n.trim()).filter(Boolean).map((nome) => ({ nome, cor: '#7E9488' }));
+  } else if (tema !== 'generico' && window.Chave.TEMAS_TIMES[tema]) {
+    listaBase = window.Chave.TEMAS_TIMES[tema].times;
+  }
+
+  // completa com nomes genéricos se a lista escolhida for menor que o
+  // número de times necessários (ex: 12 times mas só 10 seleções na lista)
+  const nomes = [];
+  const cores = [];
+  for (let i = 0; i < numTimesNecessarios; i++) {
+    if (listaBase[i]) { nomes.push(listaBase[i].nome); cores.push(listaBase[i].cor); }
+    else { nomes.push(`Time ${i + 1}`); cores.push('#7E9488'); }
+  }
+  return { nomes, cores };
+}
+
 async function rodarSorteio() {
   const tamanhoTime = parseInt(document.getElementById('sorteio-tamanho-time').value, 10);
   const participantes = await carregarParticipantes();
@@ -539,7 +577,11 @@ async function rodarSorteio() {
 
   if (participantes.length === 0) { mostrarMsg('sorteio-msg', 'Cadastre participantes antes de sortear.', 'erro'); return; }
 
-  const resultado = window.Chave.sortearTimes(participantes, tamanhoTime, { usarPosicao: usaPosicao });
+  const numTimesEstimado = Math.floor(participantes.length / tamanhoTime);
+  const tema = document.getElementById('sorteio-tema').value;
+  const { nomes, cores } = montarNomesECores(tema, numTimesEstimado);
+
+  const resultado = window.Chave.sortearTimes(participantes, tamanhoTime, { usarPosicao: usaPosicao, nomesTimes: nomes, cores });
   ultimoResultadoSorteio = resultado;
 
   let avisos = '';
@@ -570,7 +612,7 @@ async function salvarSorteio() {
   for (const time of ultimoResultadoSorteio.times) {
     const { data: novoTime, error: erroTime } = await supabaseClient
       .from('times')
-      .insert({ torneio_id: torneioAtualId, nome: time.nome })
+      .insert({ torneio_id: torneioAtualId, nome: time.nome, cor: time.cor })
       .select()
       .single();
 
