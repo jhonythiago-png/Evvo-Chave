@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/sorteio.js"></script>
 <style>
 :root{
   --void:#0A0F0D; --panel:#12211B; --panel-2:#182B22; --line:#22362B; --line-soft:#1A2A22;
@@ -68,6 +69,12 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .sair{font-size:12px;color:var(--muted);cursor:pointer;}
 .sair:hover{color:var(--chalk);}
+.team-mini{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
+.team-mini-head{display:flex;justify-content:space-between;font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+.team-mini-player{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--muted);}
+.teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px;}
+.torneio-row{cursor:pointer;}
+.torneio-row:hover td{color:var(--chalk);}
 </style>
 </head>
 <body>
@@ -165,6 +172,42 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <div id="admin-msg"></div>
 </div>
 
+<!-- DETALHE DO TORNEIO -->
+<div class="card wide hidden" id="tela-torneio">
+  <div class="top-row">
+    <h2 style="margin:0;" id="torneio-detalhe-nome">Torneio</h2>
+    <span class="sair" onclick="voltarParaListaTorneios()">← Voltar</span>
+  </div>
+
+  <h2>Participantes</h2>
+  <table id="tabela-participantes"><tbody></tbody></table>
+  <div class="divider"></div>
+  <label>Nome</label>
+  <input type="text" id="part-nome" placeholder="Nome do participante">
+  <label>Idade</label>
+  <input type="number" id="part-idade" placeholder="Ex: 28">
+  <label>Nível técnico (1 a 5)</label>
+  <input type="number" id="part-nivel" min="1" max="5" placeholder="Ex: 3">
+  <label id="part-posicao-label">Posição</label>
+  <select id="part-posicao">
+    <option value="GOL">Goleiro</option>
+    <option value="ZAG">Zagueiro</option>
+    <option value="MEI">Meio</option>
+    <option value="ATA">Atacante</option>
+  </select>
+  <button class="btn" onclick="adicionarParticipante()">Adicionar participante</button>
+  <div id="participantes-msg"></div>
+
+  <div class="divider"></div>
+
+  <h2>Sorteio</h2>
+  <label>Tamanho do time</label>
+  <input type="number" id="sorteio-tamanho-time" value="8" min="1">
+  <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
+  <div id="sorteio-msg"></div>
+  <div id="sorteio-resultado"></div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://amvhlrumeeghahlnangz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtdmhscnVtZWVnaGFobG5hbmd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5NDIzMzAsImV4cCI6MjEwMzUxODMzMH0.ANAQOifxNFoVgAhEV48zg-G0RPSFvQPjhvIfK5Gg9bs';
@@ -194,7 +237,7 @@ async function chamarEdgeFunction(nome, body) {
 }
 
 function mostrarTela(id) {
-  ['tela-login','tela-carregando','tela-trocar-senha','tela-pendente','tela-master','tela-admin'].forEach((t) => {
+  ['tela-login','tela-carregando','tela-trocar-senha','tela-pendente','tela-master','tela-admin','tela-torneio'].forEach((t) => {
     document.getElementById(t).classList.toggle('hidden', t !== id);
   });
 }
@@ -362,6 +405,8 @@ async function carregarPainelAdmin() {
   if (torneios) {
     torneios.forEach((t) => {
       const tr = document.createElement('tr');
+      tr.className = 'torneio-row';
+      tr.onclick = () => abrirTorneio(t.id, t.nome, t.esporte);
       tr.innerHTML = `<td>${t.nome}</td><td>${t.esporte}</td><td>${t.data_evento}</td><td><span class="pill ${t.status === 'encerrado' ? 'ativo' : 'pendente'}">${t.status}</span></td>`;
       tbody.appendChild(tr);
     });
@@ -387,6 +432,126 @@ async function criarTorneio() {
   document.getElementById('torneio-nome').value = '';
   document.getElementById('torneio-data').value = '';
   await carregarPainelAdmin();
+}
+
+// ---------------- DETALHE DO TORNEIO: PARTICIPANTES & SORTEIO ----------------
+let torneioAtualId = null;
+let torneioAtualEsporte = null;
+const ESPORTES_COM_POSICAO = ['futebol', 'volei', 'basquete'];
+
+async function abrirTorneio(id, nome, esporte) {
+  torneioAtualId = id;
+  torneioAtualEsporte = esporte;
+  document.getElementById('torneio-detalhe-nome').textContent = nome;
+  document.getElementById('part-posicao-label').parentElement;
+  const usaPosicao = ESPORTES_COM_POSICAO.includes(esporte);
+  document.getElementById('part-posicao-label').style.display = usaPosicao ? 'block' : 'none';
+  document.getElementById('part-posicao').style.display = usaPosicao ? 'block' : 'none';
+  document.getElementById('sorteio-resultado').innerHTML = '';
+  document.getElementById('sorteio-msg').innerHTML = '';
+  await carregarParticipantes();
+  mostrarTela('tela-torneio');
+}
+
+function voltarParaListaTorneios() {
+  mostrarTela('tela-admin');
+}
+
+async function carregarParticipantes() {
+  const { data: participantes } = await supabaseClient
+    .from('participantes')
+    .select('*')
+    .eq('torneio_id', torneioAtualId)
+    .order('criado_em', { ascending: true });
+
+  const tbody = document.querySelector('#tabela-participantes tbody');
+  tbody.innerHTML = '';
+  if (participantes) {
+    participantes.forEach((p) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${p.time_id ? '<span class="pill ativo">Sorteado</span>' : '<span class="pill pendente">Sem time</span>'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  return participantes || [];
+}
+
+async function adicionarParticipante() {
+  const nome = document.getElementById('part-nome').value.trim();
+  const idade = document.getElementById('part-idade').value || null;
+  const nivel_tecnico = document.getElementById('part-nivel').value || null;
+  const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
+  const posicao = usaPosicao ? document.getElementById('part-posicao').value : null;
+
+  if (!nome) { mostrarMsg('participantes-msg', 'Digite o nome do participante.', 'erro'); return; }
+
+  const { error } = await supabaseClient.from('participantes').insert({
+    torneio_id: torneioAtualId, nome, idade, nivel_tecnico, posicao,
+  });
+
+  if (error) { mostrarMsg('participantes-msg', error.message, 'erro'); return; }
+
+  document.getElementById('part-nome').value = '';
+  document.getElementById('part-idade').value = '';
+  document.getElementById('part-nivel').value = '';
+  mostrarMsg('participantes-msg', 'Participante adicionado.', 'ok');
+  await carregarParticipantes();
+}
+
+let ultimoResultadoSorteio = null;
+
+async function rodarSorteio() {
+  const tamanhoTime = parseInt(document.getElementById('sorteio-tamanho-time').value, 10);
+  const participantes = await carregarParticipantes();
+  const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
+
+  if (participantes.length === 0) { mostrarMsg('sorteio-msg', 'Cadastre participantes antes de sortear.', 'erro'); return; }
+
+  const resultado = window.Chave.sortearTimes(participantes, tamanhoTime, { usarPosicao: usaPosicao });
+  ultimoResultadoSorteio = resultado;
+
+  let avisos = '';
+  if (resultado.avisoSobra) avisos += `<div class="msg aviso">${resultado.avisoSobra}</div>`;
+  if (resultado.avisoPosicao) avisos += `<div class="msg aviso">${resultado.avisoPosicao}</div>`;
+  if (resultado.numTimes === 0) { mostrarMsg('sorteio-msg', 'Participantes insuficientes para formar 1 time.', 'erro'); return; }
+
+  let html = avisos + '<div class="teams-grid">';
+  resultado.times.forEach((t, i) => {
+    html += `<div class="team-mini"><div class="team-mini-head"><span>${t.nome}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
+    t.jogadores.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
+    html += '</div>';
+  });
+  html += '</div><button class="btn" style="margin-top:14px;" onclick="salvarSorteio()">Salvar sorteio</button>';
+
+  document.getElementById('sorteio-resultado').innerHTML = html;
+  document.getElementById('sorteio-msg').innerHTML = '';
+}
+
+async function salvarSorteio() {
+  if (!ultimoResultadoSorteio) return;
+
+  for (const time of ultimoResultadoSorteio.times) {
+    const { data: novoTime, error: erroTime } = await supabaseClient
+      .from('times')
+      .insert({ torneio_id: torneioAtualId, nome: time.nome })
+      .select()
+      .single();
+
+    if (erroTime) { mostrarMsg('sorteio-msg', `Erro ao salvar time "${time.nome}": ${erroTime.message}`, 'erro'); return; }
+
+    const idsJogadores = time.jogadores.map((j) => j.id);
+    const { error: erroUpdate } = await supabaseClient
+      .from('participantes')
+      .update({ time_id: novoTime.id })
+      .in('id', idsJogadores);
+
+    if (erroUpdate) { mostrarMsg('sorteio-msg', `Erro ao vincular jogadores do time "${time.nome}": ${erroUpdate.message}`, 'erro'); return; }
+  }
+
+  mostrarMsg('sorteio-msg', 'Sorteio salvo! Times criados e participantes vinculados.', 'ok');
+  document.getElementById('sorteio-resultado').innerHTML = '';
+  ultimoResultadoSorteio = null;
+  await carregarParticipantes();
 }
 
 // ---------------- SESSÃO EXISTENTE AO ABRIR A PÁGINA ----------------
