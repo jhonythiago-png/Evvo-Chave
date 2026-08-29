@@ -530,6 +530,11 @@ async function rodarSorteio() {
 async function salvarSorteio() {
   if (!ultimoResultadoSorteio) return;
 
+  // Se já existiam times de um sorteio anterior, apaga antes de criar os novos
+  // (senão fica duplicando times a cada "sortear de novo").
+  const { error: erroLimpeza } = await supabaseClient.from('times').delete().eq('torneio_id', torneioAtualId);
+  if (erroLimpeza) { mostrarMsg('sorteio-msg', `Erro ao limpar sorteio anterior: ${erroLimpeza.message}`, 'erro'); return; }
+
   for (const time of ultimoResultadoSorteio.times) {
     const { data: novoTime, error: erroTime } = await supabaseClient
       .from('times')
