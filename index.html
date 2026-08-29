@@ -78,8 +78,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
     <div class="brand-name">Chave</div>
   </div>
   <h2 id="login-titulo">Entrar</h2>
-  <label>E-mail</label>
-  <input type="email" id="login-email" placeholder="seu@email.com">
+  <label id="login-label">Usuário</label>
+  <input type="text" id="login-identificador" placeholder="seu usuário">
   <label>Senha</label>
   <input type="password" id="login-senha" placeholder="••••••••">
   <button class="btn" id="btn-login">Entrar</button>
@@ -121,6 +121,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <input type="email" id="org-admin-email" placeholder="admin@organizacao.com">
   <label>UID do admin (peça para ele te enviar, aparece na tela dele)</label>
   <input type="text" id="org-admin-uid" placeholder="Ex: 274ceff4-d4d5-...">
+  <label>Nome de usuário do admin (login, precisa ser único no sistema)</label>
+  <input type="text" id="org-admin-username" placeholder="Ex: joao">
   <button class="btn" onclick="criarOrganizador()">Criar organizador + vincular admin</button>
   <div id="master-msg"></div>
 </div>
@@ -173,16 +175,19 @@ document.getElementById('toggle-cadastro').addEventListener('click', () => {
   modoCadastro = !modoCadastro;
   document.getElementById('login-titulo').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
   document.getElementById('btn-login').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  document.getElementById('login-label').textContent = modoCadastro ? 'E-mail' : 'Usuário';
+  document.getElementById('login-identificador').placeholder = modoCadastro ? 'seu@email.com' : 'seu usuário';
   document.getElementById('toggle-cadastro').textContent = modoCadastro ? 'Já tem conta? Entrar' : 'Ainda não tem conta? Criar conta';
 });
 
 document.getElementById('btn-login').addEventListener('click', async () => {
-  const email = document.getElementById('login-email').value.trim();
+  const identificador = document.getElementById('login-identificador').value.trim();
   const senha = document.getElementById('login-senha').value;
-  if (!email || !senha) { mostrarMsg('login-msg', 'Preencha e-mail e senha.', 'erro'); return; }
+  if (!identificador || !senha) { mostrarMsg('login-msg', 'Preencha os campos.', 'erro'); return; }
 
   if (modoCadastro) {
-    const { data, error } = await supabase.auth.signUp({ email, password: senha });
+    // cadastro ainda usa e-mail de verdade — é o que o Supabase Auth exige
+    const { data, error } = await supabase.auth.signUp({ email: identificador, password: senha });
     if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
     if (data.session) {
       await rotearUsuario();
@@ -190,6 +195,10 @@ document.getElementById('btn-login').addEventListener('click', async () => {
       mostrarMsg('login-msg', 'Conta criada! Verifique seu e-mail para confirmar, depois faça login.', 'ok');
     }
   } else {
+    // login usa username -> resolve o e-mail real por trás, sem o usuário ver
+    const { data: email, error: erroResolucao } = await supabase.rpc('email_por_username', { p_username: identificador });
+    if (erroResolucao || !email) { mostrarMsg('login-msg', 'Usuário não encontrado.', 'erro'); return; }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
     await rotearUsuario();
@@ -267,8 +276,9 @@ async function criarOrganizador() {
   const adminNome = document.getElementById('org-admin-nome').value.trim();
   const adminEmail = document.getElementById('org-admin-email').value.trim();
   const adminUid = document.getElementById('org-admin-uid').value.trim();
+  const adminUsername = document.getElementById('org-admin-username').value.trim().toLowerCase();
 
-  if (!nome || !email || !adminNome || !adminEmail || !adminUid) {
+  if (!nome || !email || !adminNome || !adminEmail || !adminUid || !adminUsername) {
     mostrarMsg('master-msg', 'Preencha todos os campos.', 'erro');
     return;
   }
@@ -287,8 +297,14 @@ async function criarOrganizador() {
 
   if (erroUsuario) { mostrarMsg('master-msg', erroUsuario.message, 'erro'); return; }
 
-  mostrarMsg('master-msg', `Organizador "${nome}" criado e admin vinculado com sucesso.`, 'ok');
-  ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-uid'].forEach((id) => document.getElementById(id).value = '');
+  const { error: erroUsername } = await supabase
+    .from('login_usernames')
+    .insert({ username: adminUsername, auth_user_id: adminUid });
+
+  if (erroUsername) { mostrarMsg('master-msg', `Organizador criado, mas o nome de usuário falhou: ${erroUsername.message}`, 'erro'); return; }
+
+  mostrarMsg('master-msg', `Organizador "${nome}" criado, admin vinculado, login "${adminUsername}" definido.`, 'ok');
+  ['org-nome','org-email','org-admin-nome','org-admin-email','org-admin-uid','org-admin-username'].forEach((id) => document.getElementById(id).value = '');
   await carregarPainelMaster();
 }
 
