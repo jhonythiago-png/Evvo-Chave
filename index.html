@@ -10,6 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/sorteio.js"></script>
+<script src="js/confrontos.js"></script>
+<script src="js/cronograma.js"></script>
+<script src="js/classificacao.js"></script>
 <style>
 :root{
   --void:#0A0F0D; --panel:#12211B; --panel-2:#182B22; --line:#22362B; --line-soft:#1A2A22;
@@ -75,6 +78,12 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px;}
 .torneio-row{cursor:pointer;}
 .torneio-row:hover td{color:var(--chalk);}
+.grupo-box{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
+.grupo-box h3{font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.jogo-row{display:flex;align-items:center;gap:10px;background:var(--void);border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:13px;}
+.jogo-row .times{flex:1;}
+.jogo-row input[type=number]{width:50px;text-align:center;padding:5px;}
+.jogo-row .horario{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:11px;min-width:70px;}
 </style>
 </head>
 <body>
@@ -206,6 +215,27 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   <button class="btn secondary" onclick="rodarSorteio()">Sortear times</button>
   <div id="sorteio-msg"></div>
   <div id="sorteio-resultado"></div>
+
+  <div class="divider"></div>
+
+  <h2>Grupos</h2>
+  <label>Número de grupos</label>
+  <input type="number" id="grupos-numero" value="2" min="1">
+  <button class="btn secondary" onclick="sortearGrupos()">Sortear grupos</button>
+  <div id="grupos-msg"></div>
+  <div id="grupos-resultado"></div>
+
+  <div class="divider"></div>
+
+  <h2>Jogos</h2>
+  <button class="btn secondary" onclick="gerarCalendario()">Gerar calendário</button>
+  <div id="jogos-msg"></div>
+  <div id="jogos-lista"></div>
+
+  <div class="divider"></div>
+
+  <h2>Classificação</h2>
+  <div id="classificacao-resultado"></div>
 </div>
 
 <script>
@@ -449,7 +479,9 @@ async function abrirTorneio(id, nome, esporte) {
   document.getElementById('part-posicao').style.display = usaPosicao ? 'block' : 'none';
   document.getElementById('sorteio-resultado').innerHTML = '';
   document.getElementById('sorteio-msg').innerHTML = '';
+  document.getElementById('grupos-resultado').innerHTML = '';
   await carregarParticipantes();
+  await carregarJogosEClassificacao();
   mostrarTela('tela-torneio');
 }
 
@@ -557,6 +589,159 @@ async function salvarSorteio() {
   document.getElementById('sorteio-resultado').innerHTML = '';
   ultimoResultadoSorteio = null;
   await carregarParticipantes();
+}
+
+// ---------------- GRUPOS ----------------
+async function sortearGrupos() {
+  const numGrupos = parseInt(document.getElementById('grupos-numero').value, 10);
+  const { data: times, error } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioAtualId);
+
+  if (error) { mostrarMsg('grupos-msg', error.message, 'erro'); return; }
+  if (!times || times.length === 0) { mostrarMsg('grupos-msg', 'Sorteie os times primeiro.', 'erro'); return; }
+  if (numGrupos < 1) { mostrarMsg('grupos-msg', 'Número de grupos inválido.', 'erro'); return; }
+
+  // apaga grupos antigos (por causa do reset do sorteio) antes de recriar
+  await supabaseClient.from('grupos').delete().eq('torneio_id', torneioAtualId);
+
+  const embaralhados = [...times].sort(() => Math.random() - 0.5);
+  const grupos = Array.from({ length: numGrupos }, (_, i) => ({ nome: `Grupo ${String.fromCharCode(65 + i)}`, times: [] }));
+  embaralhados.forEach((t, i) => grupos[i % numGrupos].times.push(t));
+
+  for (const g of grupos) {
+    const { data: novoGrupo, error: erroGrupo } = await supabaseClient.from('grupos').insert({ torneio_id: torneioAtualId, nome: g.nome }).select().single();
+    if (erroGrupo) { mostrarMsg('grupos-msg', erroGrupo.message, 'erro'); return; }
+    g.id = novoGrupo.id;
+
+    const idsTimes = g.times.map((t) => t.id);
+    const { error: erroUpdate } = await supabaseClient.from('times').update({ grupo_id: novoGrupo.id }).in('id', idsTimes);
+    if (erroUpdate) { mostrarMsg('grupos-msg', erroUpdate.message, 'erro'); return; }
+  }
+
+  let html = '';
+  grupos.forEach((g) => {
+    html += `<div class="grupo-box"><h3>${g.nome}</h3>${g.times.map((t) => t.nome).join(', ')}</div>`;
+  });
+  document.getElementById('grupos-resultado').innerHTML = html;
+  mostrarMsg('grupos-msg', 'Grupos sorteados e salvos.', 'ok');
+}
+
+// ---------------- CALENDÁRIO DE JOGOS ----------------
+async function gerarCalendario() {
+  const { data: torneio, error: erroTorneio } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
+  if (erroTorneio) { mostrarMsg('jogos-msg', erroTorneio.message, 'erro'); return; }
+
+  const { data: grupos, error: erroGrupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId);
+  if (erroGrupos) { mostrarMsg('jogos-msg', erroGrupos.message, 'erro'); return; }
+  if (!grupos || grupos.length === 0) { mostrarMsg('jogos-msg', 'Sorteie os grupos primeiro.', 'erro'); return; }
+
+  // apaga jogos antigos antes de gerar de novo
+  await supabaseClient.from('jogos').delete().eq('torneio_id', torneioAtualId).eq('fase', 'grupos');
+
+  const rodadasPorGrupo = grupos.map((g) => ({
+    grupoId: g.id,
+    rodadas: window.Chave.gerarRodadasRoundRobin(g.times.map((t) => t.id)),
+  }));
+
+  const maxRodadas = Math.max(...rodadasPorGrupo.map((g) => g.rodadas.length));
+  const rodadasCombinadas = [];
+  for (let i = 0; i < maxRodadas; i++) {
+    const combinada = [];
+    rodadasPorGrupo.forEach((g) => {
+      if (g.rodadas[i]) {
+        g.rodadas[i].forEach(([timeA, timeB]) => {
+          combinada.push({ fase: 'grupos', grupo_id: g.grupoId, rodada: i + 1, time_a_id: timeA, time_b_id: timeB });
+        });
+      }
+    });
+    rodadasCombinadas.push(combinada);
+  }
+
+  const { jogosAgendados, horarioTerminoEstimado } = window.Chave.agendarJogos(rodadasCombinadas, {
+    camposDisponiveis: torneio.campos_disponiveis,
+    horarioInicio: torneio.horario_inicio?.slice(0, 5) || '08:00',
+    intervaloInicio: torneio.intervalo_inicio?.slice(0, 5) || null,
+    intervaloFim: torneio.intervalo_fim?.slice(0, 5) || null,
+    retornoAposIntervalo: torneio.retorno_jogos?.slice(0, 5) || null,
+    duracaoPartidaMin: torneio.duracao_partida_min,
+    duracaoFinalMin: torneio.duracao_final_min,
+    intervaloTrocaMin: torneio.intervalo_troca_min,
+  });
+
+  for (const jogo of jogosAgendados) {
+    const { error } = await supabaseClient.from('jogos').insert({
+      torneio_id: torneioAtualId, fase: jogo.fase, grupo_id: jogo.grupo_id, rodada: jogo.rodada,
+      time_a_id: jogo.time_a_id, time_b_id: jogo.time_b_id,
+      campo_numero: jogo.campo_numero, horario_previsto: jogo.horario_previsto,
+    });
+    if (error) { mostrarMsg('jogos-msg', `Erro ao salvar jogo: ${error.message}`, 'erro'); return; }
+  }
+
+  mostrarMsg('jogos-msg', `Calendário gerado (${jogosAgendados.length} jogos). Término estimado: ${horarioTerminoEstimado}.`, 'ok');
+  await carregarJogosEClassificacao();
+}
+
+async function carregarJogosEClassificacao() {
+  const { data: jogos } = await supabaseClient
+    .from('jogos')
+    .select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
+    .eq('torneio_id', torneioAtualId)
+    .eq('fase', 'grupos')
+    .order('rodada', { ascending: true });
+
+  const lista = document.getElementById('jogos-lista');
+  lista.innerHTML = '';
+  (jogos || []).forEach((j) => {
+    const div = document.createElement('div');
+    div.className = 'jogo-row';
+    div.innerHTML = `
+      <span class="horario">${j.horario_previsto?.slice(0,5) || ''} · C${j.campo_numero}</span>
+      <span class="times">${j.grupos?.nome || ''} — ${j.time_a?.nome} x ${j.time_b?.nome}</span>
+      <input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0">
+      <span>x</span>
+      <input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0">
+      <button class="btn small secondary" onclick="lancarPlacar('${j.id}')">Salvar</button>
+    `;
+    lista.appendChild(div);
+  });
+
+  await atualizarClassificacao();
+}
+
+async function lancarPlacar(jogoId) {
+  const golsA = parseInt(document.getElementById(`gols-a-${jogoId}`).value, 10);
+  const golsB = parseInt(document.getElementById(`gols-b-${jogoId}`).value, 10);
+  if (isNaN(golsA) || isNaN(golsB)) { mostrarMsg('jogos-msg', 'Preencha os dois placares.', 'erro'); return; }
+
+  const { error } = await supabaseClient.from('jogos').update({ gols_a: golsA, gols_b: golsB, status: 'encerrado' }).eq('id', jogoId);
+  if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
+
+  mostrarMsg('jogos-msg', 'Placar salvo.', 'ok');
+  await atualizarClassificacao();
+}
+
+async function atualizarClassificacao() {
+  const { data: torneio } = await supabaseClient.from('torneios').select('pontos_vitoria, pontos_empate, pontos_derrota').eq('id', torneioAtualId).single();
+  const { data: grupos } = await supabaseClient.from('grupos').select('*, times(*)').eq('torneio_id', torneioAtualId);
+  const { data: jogosEncerrados } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioAtualId).eq('fase', 'grupos').eq('status', 'encerrado');
+
+  let html = '';
+  (grupos || []).forEach((g) => {
+    const jogosDoGrupo = (jogosEncerrados || []).filter((j) => j.grupo_id === g.id);
+    const { classificacao, avisos } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {
+      pontosVitoria: torneio?.pontos_vitoria, pontosEmpate: torneio?.pontos_empate, pontosDerrota: torneio?.pontos_derrota,
+    });
+
+    html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
+      <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
+    classificacao.forEach((t) => {
+      html += `<tr><td>${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
+    });
+    html += '</table>';
+    avisos.forEach((a) => { html += `<div class="msg aviso" style="margin-top:8px;">${a.mensagem}</div>`; });
+    html += '</div>';
+  });
+
+  document.getElementById('classificacao-resultado').innerHTML = html;
 }
 
 // ---------------- SESSÃO EXISTENTE AO ABRIR A PÁGINA ----------------
