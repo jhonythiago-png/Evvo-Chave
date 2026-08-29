@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Chave — Gestão de Torneios</title>
+<link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -79,9 +80,9 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   </div>
   <h2 id="login-titulo">Entrar</h2>
   <label id="login-label">Usuário</label>
-  <input type="text" id="login-identificador" placeholder="seu usuário">
+  <input type="text" id="login-identificador" placeholder="seu usuário" autocomplete="off" name="chave-login-user">
   <label>Senha</label>
-  <input type="password" id="login-senha" placeholder="••••••••">
+  <input type="password" id="login-senha" placeholder="••••••••" autocomplete="new-password" name="chave-login-pass">
   <button class="btn" id="btn-login">Entrar</button>
   <div class="link-toggle" id="toggle-cadastro">Ainda não tem conta? Criar conta</div>
   <div id="login-msg"></div>
