@@ -156,7 +156,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 <script>
 const SUPABASE_URL = 'https://amvhlrumeeghahlnangz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtdmhscnVtZWVnaGFobG5hbmd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5NDIzMzAsImV4cCI6MjEwMzUxODMzMH0.ANAQOifxNFoVgAhEV48zg-G0RPSFvQPjhvIfK5Gg9bs';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let modoCadastro = false;
 let organizadorAtualId = null;
@@ -188,7 +188,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 
   if (modoCadastro) {
     // cadastro ainda usa e-mail de verdade — é o que o Supabase Auth exige
-    const { data, error } = await supabase.auth.signUp({ email: identificador, password: senha });
+    const { data, error } = await supabaseClient.auth.signUp({ email: identificador, password: senha });
     if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
     if (data.session) {
       await rotearUsuario();
@@ -197,32 +197,32 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     }
   } else {
     // login usa username -> resolve o e-mail real por trás, sem o usuário ver
-    const { data: email, error: erroResolucao } = await supabase.rpc('email_por_username', { p_username: identificador });
+    const { data: email, error: erroResolucao } = await supabaseClient.rpc('email_por_username', { p_username: identificador });
     if (erroResolucao || !email) { mostrarMsg('login-msg', 'Usuário não encontrado.', 'erro'); return; }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
     if (error) { mostrarMsg('login-msg', error.message, 'erro'); return; }
     await rotearUsuario();
   }
 });
 
 function sair() {
-  supabase.auth.signOut().then(() => location.reload());
+  supabaseClient.auth.signOut().then(() => location.reload());
 }
 
 // ---------------- ROTEAMENTO PÓS-LOGIN ----------------
 async function rotearUsuario() {
   mostrarTela('tela-carregando');
 
-  const { data: masterCheck } = await supabase.rpc('eh_master');
+  const { data: masterCheck } = await supabaseClient.rpc('eh_master');
   if (masterCheck === true) {
     await carregarPainelMaster();
     return;
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
 
-  const { data: usuarioRows } = await supabase
+  const { data: usuarioRows } = await supabaseClient
     .from('usuarios')
     .select('organizador_id, organizadores(nome, ativo)')
     .eq('auth_user_id', user.id);
@@ -247,7 +247,7 @@ async function rotearUsuario() {
 
 // ---------------- PAINEL MASTER ----------------
 async function carregarPainelMaster() {
-  const { data: orgs, error } = await supabase.from('organizadores').select('*').order('criado_em', { ascending: false });
+  const { data: orgs, error } = await supabaseClient.from('organizadores').select('*').order('criado_em', { ascending: false });
   const tbody = document.querySelector('#tabela-organizadores tbody');
   tbody.innerHTML = '';
   if (orgs) {
@@ -266,7 +266,7 @@ async function carregarPainelMaster() {
 }
 
 async function alternarAtivo(id, ativoAtual) {
-  const { error } = await supabase.from('organizadores').update({ ativo: !ativoAtual }).eq('id', id);
+  const { error } = await supabaseClient.from('organizadores').update({ ativo: !ativoAtual }).eq('id', id);
   if (error) { mostrarMsg('master-msg', error.message, 'erro'); return; }
   await carregarPainelMaster();
 }
@@ -284,7 +284,7 @@ async function criarOrganizador() {
     return;
   }
 
-  const { data: org, error: erroOrg } = await supabase
+  const { data: org, error: erroOrg } = await supabaseClient
     .from('organizadores')
     .insert({ nome, email, ativo: true })
     .select()
@@ -292,13 +292,13 @@ async function criarOrganizador() {
 
   if (erroOrg) { mostrarMsg('master-msg', erroOrg.message, 'erro'); return; }
 
-  const { error: erroUsuario } = await supabase
+  const { error: erroUsuario } = await supabaseClient
     .from('usuarios')
     .insert({ organizador_id: org.id, auth_user_id: adminUid, nome: adminNome, email: adminEmail });
 
   if (erroUsuario) { mostrarMsg('master-msg', erroUsuario.message, 'erro'); return; }
 
-  const { error: erroUsername } = await supabase
+  const { error: erroUsername } = await supabaseClient
     .from('login_usernames')
     .insert({ username: adminUsername, auth_user_id: adminUid });
 
@@ -311,7 +311,7 @@ async function criarOrganizador() {
 
 // ---------------- PAINEL ADMIN ----------------
 async function carregarPainelAdmin() {
-  const { data: torneios } = await supabase
+  const { data: torneios } = await supabaseClient
     .from('torneios')
     .select('*')
     .eq('organizador_id', organizadorAtualId)
@@ -336,7 +336,7 @@ async function criarTorneio() {
 
   if (!nome || !data_evento) { mostrarMsg('admin-msg', 'Preencha nome e data.', 'erro'); return; }
 
-  const { error } = await supabase.from('torneios').insert({
+  const { error } = await supabaseClient.from('torneios').insert({
     organizador_id: organizadorAtualId,
     nome, esporte, data_evento,
   });
@@ -351,7 +351,7 @@ async function criarTorneio() {
 
 // ---------------- SESSÃO EXISTENTE AO ABRIR A PÁGINA ----------------
 (async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     await rotearUsuario();
   }

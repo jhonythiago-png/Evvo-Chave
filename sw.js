@@ -1,11 +1,11 @@
 // Chave — Service Worker (Fase 0: shell mínimo instalável)
 // Cache-first para o shell estático; dados (Supabase) sempre vêm da rede.
 
-const CACHE_NAME = 'chave-shell-v1';
+const CACHE_NAME = 'chave-shell-v2';
 const SHELL_FILES = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
