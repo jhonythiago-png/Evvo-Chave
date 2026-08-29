@@ -10,7 +10,7 @@
  * - Esportes individuais (sem posição, ex: tênis): balanceia só por nível.
  */
 
-const POSICOES_ORDEM = ['GOL', 'ZAG', 'MEI', 'ATA'];
+const POSICOES_ORDEM = ['goleiro', 'zagueiro', 'cabeca-de-area', 'lateral-esquerda', 'lateral-direita', 'centroavante', 'meio-campo'];
 
 /**
  * @param {Array} participantes - [{id, nome, nivel_tecnico, posicao}]
