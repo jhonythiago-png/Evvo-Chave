@@ -132,6 +132,19 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .jogo-card input[type=number]{width:44px;text-align:center;padding:5px;flex-shrink:0;}
 .jogo-card .salvar-btn{margin-top:8px;width:100%;padding:6px;font-size:11px;}
 .em-construcao{color:var(--muted);font-size:13px;padding:30px 10px;text-align:center;}
+.eventos-jogo{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
+.eventos-form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.eventos-form select{width:auto;flex:1;min-width:100px;padding:6px 8px;font-size:12px;}
+.eventos-lista{margin-top:8px;}
+.evento-linha{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:4px 0;}
+.remover-evento{cursor:pointer;color:var(--red);padding:0 4px;}
+.remover-evento:hover{color:#ff8a80;}
+.rank-row-simples{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px;}
+.rank-row-simples:first-child{border-top:none;}
+.rank-pos{font-family:'JetBrains Mono',monospace;color:var(--muted-2);width:16px;}
+.rank-nome{flex:1;}
+.rank-time{color:var(--muted-2);font-size:12px;}
+.rank-qtd{font-family:'JetBrains Mono',monospace;font-weight:600;}
 .config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 20px;}
 .config-grid .campo label{margin-top:0;}
 
@@ -473,7 +486,16 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-stats">
-        <div class="painel em-construcao">Estatísticas (artilharia, cartões, disciplina) chegam numa próxima fase.</div>
+        <div class="two-col">
+          <div class="painel">
+            <h3>Artilharia</h3>
+            <div id="stats-artilharia"></div>
+          </div>
+          <div class="painel">
+            <h3>Cartões</h3>
+            <div id="stats-cartoes"></div>
+          </div>
+        </div>
       </div>
 
       <div class="pane" id="tab-publico">
@@ -730,6 +752,7 @@ async function abrirTorneio(id, nome, esporte, status) {
     ['grupos', carregarGrupos],
     ['jogos e classificação', carregarJogosEClassificacao],
     ['mata-mata', carregarMataMata],
+    ['estatísticas', carregarEstatisticas],
   ];
   const erros = [];
   for (const [nomeTarefa, fn] of tarefas) {
@@ -1157,14 +1180,71 @@ async function gerarCalendario() {
   await carregarJogosEClassificacao();
 }
 
+// ---------------- EVENTOS DE PARTIDA (gols e cartões por jogador) ----------------
+function montarEventosHtml(jogoId, jogadoresDoJogo, eventosDoJogo) {
+  const opcoesJogadores = jogadoresDoJogo.map((p) => `<option value="${p.id}">${p.nome}</option>`).join('');
+  const eventosDesseJogo = eventosDoJogo.filter((e) => e.jogo_id === jogoId);
+  const rotuloTipo = { gol: '⚽ Gol', cartao_amarelo: '🟨 Amarelo', cartao_vermelho: '🟥 Vermelho' };
+
+  let listaHtml = '';
+  eventosDesseJogo.forEach((e) => {
+    const nomeJogador = jogadoresDoJogo.find((p) => p.id === e.participante_id)?.nome || '—';
+    listaHtml += `<div class="evento-linha"><span>${rotuloTipo[e.tipo] || e.tipo} — ${nomeJogador}</span><span class="remover-evento" onclick="removerEvento('${e.id}')">✕</span></div>`;
+  });
+
+  return `
+    <div class="eventos-jogo">
+      <div class="eventos-form">
+        <select id="evento-jogador-${jogoId}">${opcoesJogadores}</select>
+        <select id="evento-tipo-${jogoId}">
+          <option value="gol">⚽ Gol</option>
+          <option value="cartao_amarelo">🟨 Amarelo</option>
+          <option value="cartao_vermelho">🟥 Vermelho</option>
+        </select>
+        <button class="btn secondary small" onclick="registrarEvento('${jogoId}')">+ Evento</button>
+      </div>
+      <div class="eventos-lista">${listaHtml}</div>
+    </div>
+  `;
+}
+
+async function buscarParticipantesEEventos() {
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneioAtualId);
+  const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneioAtualId);
+  return { participantes: participantes || [], eventos: eventos || [] };
+}
+
+async function registrarEvento(jogoId) {
+  const participanteId = document.getElementById(`evento-jogador-${jogoId}`).value;
+  const tipo = document.getElementById(`evento-tipo-${jogoId}`).value;
+  if (!participanteId) return;
+
+  const { error } = await supabaseClient.from('eventos_partida').insert({ torneio_id: torneioAtualId, jogo_id: jogoId, participante_id: participanteId, tipo });
+  if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
+
+  await carregarJogosEClassificacao();
+  await carregarMataMata();
+  await carregarEstatisticas();
+}
+
+async function removerEvento(eventoId) {
+  await supabaseClient.from('eventos_partida').delete().eq('id', eventoId);
+  await carregarJogosEClassificacao();
+  await carregarMataMata();
+  await carregarEstatisticas();
+}
+
 async function carregarJogosEClassificacao() {
   const { data: jogos } = await supabaseClient
     .from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
     .eq('torneio_id', torneioAtualId).eq('fase', 'grupos').order('rodada', { ascending: true });
 
+  const { participantes, eventos } = await buscarParticipantesEEventos();
+
   const lista = document.getElementById('jogos-lista');
   lista.innerHTML = '';
   (jogos || []).forEach((j) => {
+    const jogadoresDoJogo = participantes.filter((p) => p.time_id === j.time_a_id || p.time_id === j.time_b_id);
     const div = document.createElement('div');
     div.className = 'jogo-card';
     div.innerHTML = `
@@ -1175,6 +1255,7 @@ async function carregarJogosEClassificacao() {
         <span class="time-nome direita">${j.time_b?.nome}</span>
       </div>
       <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
+      ${montarEventosHtml(j.id, jogadoresDoJogo, eventos)}
     `;
     lista.appendChild(div);
   });
@@ -1301,6 +1382,8 @@ async function carregarMataMata() {
     .eq('torneio_id', torneioAtualId)
     .in('fase', ['semifinal', 'terceiro_lugar', 'final']);
 
+  const { participantes, eventos } = await buscarParticipantesEEventos();
+
   const lista = document.getElementById('matamata-lista');
   const campeaoDiv = document.getElementById('matamata-campeao');
   lista.innerHTML = '';
@@ -1309,6 +1392,7 @@ async function carregarMataMata() {
   const rotulo = { semifinal: 'Semifinal', terceiro_lugar: '3º lugar', final: 'Final' };
   (jogos || []).forEach((j) => {
     const empatado = j.status === 'encerrado' && j.gols_a === j.gols_b && (j.penaltis_a == null || j.penaltis_b == null);
+    const jogadoresDoJogo = participantes.filter((p) => p.time_id === j.time_a_id || p.time_id === j.time_b_id);
     const div = document.createElement('div');
     div.className = 'jogo-card';
     div.innerHTML = `
@@ -1325,6 +1409,7 @@ async function carregarMataMata() {
         <span></span>
       </div>` : ''}
       <button class="btn secondary salvar-btn" onclick="lancarPlacarMataMata('${j.id}')">Salvar placar</button>
+      ${montarEventosHtml(j.id, jogadoresDoJogo, eventos)}
     `;
     lista.appendChild(div);
 
@@ -1378,6 +1463,52 @@ async function avancarMataMataSeNecessario() {
 
   await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] });
   await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'terceiro_lugar', time_a_id: perdedores[0], time_b_id: perdedores[1] });
+}
+
+// ---------------- ESTATÍSTICAS (artilharia e cartões) ----------------
+async function carregarEstatisticas() {
+  const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneioAtualId);
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneioAtualId);
+  const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
+
+  const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome || '—';
+  const infoJogador = (id) => (participantes || []).find((p) => p.id === id);
+
+  const contarPorTipo = (tipo) => {
+    const contagem = {};
+    (eventos || []).filter((e) => e.tipo === tipo).forEach((e) => { contagem[e.participante_id] = (contagem[e.participante_id] || 0) + 1; });
+    return Object.entries(contagem)
+      .map(([participanteId, qtd]) => ({ participante: infoJogador(participanteId), qtd }))
+      .filter((r) => r.participante)
+      .sort((a, b) => b.qtd - a.qtd);
+  };
+
+  const renderRanking = (lista, corValor) => {
+    if (lista.length === 0) return '<div class="msg aviso">Nenhum registro ainda.</div>';
+    return lista.map((r, i) => `
+      <div class="rank-row-simples">
+        <span class="rank-pos">${i + 1}</span>
+        <span class="rank-nome">${r.participante.nome}</span>
+        <span class="rank-time">${nomeTime(r.participante.time_id)}</span>
+        <span class="rank-qtd" style="color:${corValor};">${r.qtd}</span>
+      </div>
+    `).join('');
+  };
+
+  document.getElementById('stats-artilharia').innerHTML = renderRanking(contarPorTipo('gol'), 'var(--amber)');
+
+  const amarelos = contarPorTipo('cartao_amarelo').map((r) => ({ ...r, label: '🟨' }));
+  const vermelhos = contarPorTipo('cartao_vermelho').map((r) => ({ ...r, label: '🟥' }));
+  const cartoesHtml = [...amarelos, ...vermelhos]
+    .sort((a, b) => b.qtd - a.qtd)
+    .map((r) => `
+      <div class="rank-row-simples">
+        <span class="rank-nome">${r.label} ${r.participante.nome}</span>
+        <span class="rank-time">${nomeTime(r.participante.time_id)}</span>
+        <span class="rank-qtd">${r.qtd}</span>
+      </div>
+    `).join('');
+  document.getElementById('stats-cartoes').innerHTML = cartoesHtml || '<div class="msg aviso">Nenhum cartão registrado ainda.</div>';
 }
 
 document.querySelectorAll('#pane-torneio .tab').forEach((tab) => {
