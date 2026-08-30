@@ -132,6 +132,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .jogo-card input[type=number]{width:44px;text-align:center;padding:5px;flex-shrink:0;}
 .jogo-card .salvar-btn{margin-top:8px;width:100%;padding:6px;font-size:11px;}
 .em-construcao{color:var(--muted);font-size:13px;padding:30px 10px;text-align:center;}
+.config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 20px;}
+.config-grid .campo label{margin-top:0;}
 
 .mobile-topbar{display:none;}
 .drawer-backdrop{display:none;}
@@ -323,43 +325,65 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane active" id="tab-visao">
-        <div class="painel" style="max-width:520px;">
+        <div class="painel" style="max-width:960px;">
           <h3>Configurações do torneio</h3>
 
-          <label>Horário de início</label>
-          <input type="time" id="cfg-horario-inicio">
-
-          <label>Campos disponíveis (jogos simultâneos)</label>
-          <input type="number" id="cfg-campos" min="1">
-
-          <label>Duração de cada partida (min)</label>
-          <input type="number" id="cfg-duracao-partida" min="1">
-
-          <label>Duração da final (min)</label>
-          <input type="number" id="cfg-duracao-final" min="1">
-
-          <label>Intervalo entre jogos, pra troca de time (min)</label>
-          <input type="number" id="cfg-intervalo-troca" min="0">
-
-          <div class="divider"></div>
-
-          <label>Intervalo (início) — deixe em branco se não tiver</label>
-          <input type="time" id="cfg-intervalo-inicio">
-
-          <label>Intervalo (fim)</label>
-          <input type="time" id="cfg-intervalo-fim">
-
-          <label>Retorno dos jogos após o intervalo</label>
-          <input type="time" id="cfg-retorno">
+          <div class="config-grid">
+            <div class="campo">
+              <label>Horário de início</label>
+              <input type="time" id="cfg-horario-inicio">
+            </div>
+            <div class="campo">
+              <label>Campos disponíveis (jogos simultâneos)</label>
+              <input type="number" id="cfg-campos" min="1">
+            </div>
+            <div class="campo">
+              <label>Duração de cada partida (min)</label>
+              <input type="number" id="cfg-duracao-partida" min="1">
+            </div>
+            <div class="campo">
+              <label>Duração da final (min)</label>
+              <input type="number" id="cfg-duracao-final" min="1">
+            </div>
+            <div class="campo">
+              <label>Intervalo entre jogos, pra troca de time (min)</label>
+              <input type="number" id="cfg-intervalo-troca" min="0">
+            </div>
+          </div>
 
           <div class="divider"></div>
 
-          <label>Pontos por vitória</label>
-          <input type="number" id="cfg-pts-vitoria" min="0">
-          <label>Pontos por empate</label>
-          <input type="number" id="cfg-pts-empate" min="0">
-          <label>Pontos por derrota</label>
-          <input type="number" id="cfg-pts-derrota" min="0">
+          <div class="config-grid">
+            <div class="campo">
+              <label>Intervalo (início) — deixe em branco se não tiver</label>
+              <input type="time" id="cfg-intervalo-inicio">
+            </div>
+            <div class="campo">
+              <label>Intervalo (fim)</label>
+              <input type="time" id="cfg-intervalo-fim">
+            </div>
+            <div class="campo">
+              <label>Retorno dos jogos após o intervalo</label>
+              <input type="time" id="cfg-retorno">
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="config-grid">
+            <div class="campo">
+              <label>Pontos por vitória</label>
+              <input type="number" id="cfg-pts-vitoria" min="0">
+            </div>
+            <div class="campo">
+              <label>Pontos por empate</label>
+              <input type="number" id="cfg-pts-empate" min="0">
+            </div>
+            <div class="campo">
+              <label>Pontos por derrota</label>
+              <input type="number" id="cfg-pts-derrota" min="0">
+            </div>
+          </div>
 
           <button class="btn full" onclick="salvarConfigTorneio()">Salvar configurações</button>
           <div id="config-msg"></div>
