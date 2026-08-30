@@ -760,11 +760,17 @@ async function abrirTorneio(id, nome, esporte, status) {
     ['mata-mata', carregarMataMata],
     ['estatísticas', carregarEstatisticas],
   ];
+  // roda tudo em paralelo (nenhuma depende do resultado da outra) — bem mais
+  // rápido em redes lentas (celular) do que buscar uma coisa de cada vez
+  const resultados = await Promise.allSettled(tarefas.map(([, fn]) => fn()));
   const erros = [];
-  for (const [nomeTarefa, fn] of tarefas) {
-    try { await fn(); }
-    catch (e) { erros.push(`${nomeTarefa}: ${e.message}`); console.error(nomeTarefa, e); }
-  }
+  resultados.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      const nomeTarefa = tarefas[i][0];
+      erros.push(`${nomeTarefa}: ${r.reason?.message || r.reason}`);
+      console.error(nomeTarefa, r.reason);
+    }
+  });
 
   if (erros.length > 0) {
     document.getElementById('torneio-abrir-erro').innerHTML = `<div class="msg erro">Alguns dados não carregaram: ${erros.join(' · ')}</div>`;
