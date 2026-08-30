@@ -1232,15 +1232,18 @@ async function buscarParticipantesEEventos() {
 }
 
 // ---------------- DISCIPLINA (suspensão / eliminação automática) ----------------
-// Só ESCALA status pra cima (ativo -> suspenso -> eliminado), nunca reverte
-// sozinho — o sistema não sabe quando a suspensão foi cumprida (não existe
-// escalação por jogo ainda), então quem libera de volta é o admin, manualmente.
+// Escala status pra cima (ativo -> suspenso -> eliminado) sozinho. A suspensão
+// é liberada automaticamente quando o placar do PRÓXIMO jogo do time (marcado
+// em suspenso_ate_jogo_id) é lançado — o sistema sabe que aquele jogo foi
+// cumprido assim que ele é registrado como encerrado. Eliminação nunca reverte
+// sozinha (é definitiva); o botão "Liberar" manual continua existindo como
+// escape hatch (ex: cartão lançado errado).
 function grupoDeFase(fase) {
   return fase === 'grupos' ? 'grupos' : 'mata_mata';
 }
 
-async function avaliarDisciplina(participanteId) {
-  const { data: participanteAtual } = await supabaseClient.from('participantes').select('status').eq('id', participanteId).single();
+async function avaliarDisciplina(participanteId, jogoAtualId) {
+  const { data: participanteAtual } = await supabaseClient.from('participantes').select('status, time_id').eq('id', participanteId).single();
   if (!participanteAtual || participanteAtual.status === 'eliminado') return; // eliminado é definitivo
 
   const { data: eventosDoJogador } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo').eq('participante_id', participanteId);
@@ -1264,13 +1267,42 @@ async function avaliarDisciplina(participanteId) {
   if (vermelhos >= 1 && amarelos < 2) novoStatus = 'eliminado'; // vermelho direto
   else if (amarelos >= 2 || vermelhos >= 1) novoStatus = 'suspenso'; // 2º amarelo (com ou sem o vermelho da expulsão)
 
-  if (novoStatus !== participanteAtual.status) {
+  if (novoStatus === 'suspenso' && participanteAtual.time_id) {
+    // acha o próximo jogo do time (o jogador cumpre a suspensão nele; quando
+    // o placar desse jogo específico for lançado, libera sozinho)
+    const proximoJogoId = await encontrarProximoJogoDoTime(participanteAtual.time_id, jogoAtualId);
+    await supabaseClient.from('participantes').update({ status: novoStatus, suspenso_ate_jogo_id: proximoJogoId }).eq('id', participanteId);
+  } else if (novoStatus !== participanteAtual.status) {
     await supabaseClient.from('participantes').update({ status: novoStatus }).eq('id', participanteId);
   }
 }
 
+async function encontrarProximoJogoDoTime(timeId, jogoAtualId) {
+  const { data: jogosDoTime } = await supabaseClient
+    .from('jogos')
+    .select('id, horario_previsto, status')
+    .eq('torneio_id', torneioAtualId)
+    .or(`time_a_id.eq.${timeId},time_b_id.eq.${timeId}`)
+    .order('horario_previsto', { ascending: true, nullsFirst: false });
+
+  if (!jogosDoTime || jogosDoTime.length === 0) return null;
+  const idxAtual = jogosDoTime.findIndex((j) => j.id === jogoAtualId);
+  const proximo = jogosDoTime.slice(idxAtual + 1).find((j) => j.status !== 'encerrado');
+  return proximo ? proximo.id : null;
+}
+
+// Quando o placar de um jogo é lançado, libera automaticamente quem estava
+// suspenso justamente até esse jogo — é assim que a suspensão "sabe" quando
+// foi cumprida, sem precisar de escalação jogador a jogador.
+async function liberarSuspensosPorJogo(jogoId) {
+  const { data: suspensosNesseJogo } = await supabaseClient.from('participantes').select('id').eq('suspenso_ate_jogo_id', jogoId);
+  for (const p of suspensosNesseJogo || []) {
+    await supabaseClient.from('participantes').update({ status: 'ativo', suspenso_ate_jogo_id: null }).eq('id', p.id);
+  }
+}
+
 async function liberarJogador(participanteId) {
-  await supabaseClient.from('participantes').update({ status: 'ativo' }).eq('id', participanteId);
+  await supabaseClient.from('participantes').update({ status: 'ativo', suspenso_ate_jogo_id: null }).eq('id', participanteId);
   await carregarParticipantes();
   await carregarEstatisticas();
 }
@@ -1283,7 +1315,7 @@ async function registrarEvento(jogoId) {
   const { error } = await supabaseClient.from('eventos_partida').insert({ torneio_id: torneioAtualId, jogo_id: jogoId, participante_id: participanteId, tipo });
   if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
 
-  if (tipo === 'cartao_amarelo' || tipo === 'cartao_vermelho') await avaliarDisciplina(participanteId);
+  if (tipo === 'cartao_amarelo' || tipo === 'cartao_vermelho') await avaliarDisciplina(participanteId, jogoId);
 
   await carregarJogosEClassificacao();
   await carregarMataMata();
@@ -1338,8 +1370,10 @@ async function lancarPlacar(jogoId) {
   const { error } = await supabaseClient.from('jogos').update({ gols_a: golsA, gols_b: golsB, status: 'encerrado' }).eq('id', jogoId);
   if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
 
+  await liberarSuspensosPorJogo(jogoId);
   mostrarMsg('jogos-msg', 'Placar salvo.', 'ok');
   await atualizarClassificacao();
+  await carregarParticipantes();
 }
 
 async function atualizarClassificacao() {
@@ -1511,9 +1545,11 @@ async function lancarPlacarMataMata(jogoId) {
   }).eq('id', jogoId);
   if (error) { mostrarMsg('matamata-msg', error.message, 'erro'); return; }
 
+  await liberarSuspensosPorJogo(jogoId);
   mostrarMsg('matamata-msg', 'Placar salvo.', 'ok');
   await avancarMataMataSeNecessario();
   await carregarMataMata();
+  await carregarParticipantes();
 }
 
 async function avancarMataMataSeNecessario() {
