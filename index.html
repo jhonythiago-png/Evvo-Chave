@@ -324,8 +324,46 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 
       <div class="pane active" id="tab-visao">
         <div class="painel" style="max-width:520px;">
-          <h3>Informações</h3>
-          <div id="torneio-info-rows"></div>
+          <h3>Configurações do torneio</h3>
+
+          <label>Horário de início</label>
+          <input type="time" id="cfg-horario-inicio">
+
+          <label>Campos disponíveis (jogos simultâneos)</label>
+          <input type="number" id="cfg-campos" min="1">
+
+          <label>Duração de cada partida (min)</label>
+          <input type="number" id="cfg-duracao-partida" min="1">
+
+          <label>Duração da final (min)</label>
+          <input type="number" id="cfg-duracao-final" min="1">
+
+          <label>Intervalo entre jogos, pra troca de time (min)</label>
+          <input type="number" id="cfg-intervalo-troca" min="0">
+
+          <div class="divider"></div>
+
+          <label>Intervalo (início) — deixe em branco se não tiver</label>
+          <input type="time" id="cfg-intervalo-inicio">
+
+          <label>Intervalo (fim)</label>
+          <input type="time" id="cfg-intervalo-fim">
+
+          <label>Retorno dos jogos após o intervalo</label>
+          <input type="time" id="cfg-retorno">
+
+          <div class="divider"></div>
+
+          <label>Pontos por vitória</label>
+          <input type="number" id="cfg-pts-vitoria" min="0">
+          <label>Pontos por empate</label>
+          <input type="number" id="cfg-pts-empate" min="0">
+          <label>Pontos por derrota</label>
+          <input type="number" id="cfg-pts-derrota" min="0">
+
+          <button class="btn full" onclick="salvarConfigTorneio()">Salvar configurações</button>
+          <div id="config-msg"></div>
+          <div class="msg aviso" style="margin-top:12px;">Se já gerou o calendário antes de mudar algo aqui, vá em <strong>Jogos → Gerar calendário</strong> de novo pra aplicar.</div>
         </div>
       </div>
 
@@ -689,20 +727,43 @@ async function carregarInfoTorneio() {
   const { data: t } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
   if (!t) return;
   document.getElementById('torneio-detalhe-sub').textContent = `Data: ${t.data_evento} · Status: ${t.status}`;
-  document.getElementById('torneio-info-rows').innerHTML = `
-    <div class="info-row"><span>Esporte</span><span>${t.esporte}</span></div>
-    <div class="info-row"><span>Data</span><span>${t.data_evento}</span></div>
-    <div class="info-row"><span>Horário de início</span><span>${t.horario_inicio?.slice(0,5) || '—'}</span></div>
-    <div class="info-row"><span>Intervalo</span><span>${t.intervalo_inicio ? t.intervalo_inicio.slice(0,5)+' às '+ (t.intervalo_fim?.slice(0,5)||'') : '—'}</span></div>
-    <div class="info-row"><span>Retorno pós-intervalo</span><span>${t.retorno_jogos?.slice(0,5) || '—'}</span></div>
-    <div class="info-row"><span>Campos disponíveis</span><span>${t.campos_disponiveis}</span></div>
-    <div class="info-row"><span>Duração da partida</span><span>${t.duracao_partida_min} min</span></div>
-    <div class="info-row"><span>Duração da final</span><span>${t.duracao_final_min} min</span></div>
-    <div class="info-row"><span>Intervalo entre jogos</span><span>${t.intervalo_troca_min} min</span></div>
-    <div class="info-row"><span>Pontuação</span><span>${t.pontos_vitoria} · ${t.pontos_empate} · ${t.pontos_derrota}</span></div>
-    <div class="info-row"><span>Status</span><span>${t.status}</span></div>
-  `;
+
+  document.getElementById('cfg-horario-inicio').value = t.horario_inicio?.slice(0, 5) || '';
+  document.getElementById('cfg-campos').value = t.campos_disponiveis ?? 1;
+  document.getElementById('cfg-duracao-partida').value = t.duracao_partida_min ?? 20;
+  document.getElementById('cfg-duracao-final').value = t.duracao_final_min ?? 30;
+  document.getElementById('cfg-intervalo-troca').value = t.intervalo_troca_min ?? 5;
+  document.getElementById('cfg-intervalo-inicio').value = t.intervalo_inicio?.slice(0, 5) || '';
+  document.getElementById('cfg-intervalo-fim').value = t.intervalo_fim?.slice(0, 5) || '';
+  document.getElementById('cfg-retorno').value = t.retorno_jogos?.slice(0, 5) || '';
+  document.getElementById('cfg-pts-vitoria').value = t.pontos_vitoria ?? 3;
+  document.getElementById('cfg-pts-empate').value = t.pontos_empate ?? 1;
+  document.getElementById('cfg-pts-derrota').value = t.pontos_derrota ?? 0;
+
   await carregarConfigPublico(t);
+}
+
+async function salvarConfigTorneio() {
+  const valorOuNull = (id) => document.getElementById(id).value || null;
+
+  const atualizacao = {
+    horario_inicio: valorOuNull('cfg-horario-inicio'),
+    campos_disponiveis: parseInt(document.getElementById('cfg-campos').value, 10) || 1,
+    duracao_partida_min: parseInt(document.getElementById('cfg-duracao-partida').value, 10) || 20,
+    duracao_final_min: parseInt(document.getElementById('cfg-duracao-final').value, 10) || 30,
+    intervalo_troca_min: parseInt(document.getElementById('cfg-intervalo-troca').value, 10) || 0,
+    intervalo_inicio: valorOuNull('cfg-intervalo-inicio'),
+    intervalo_fim: valorOuNull('cfg-intervalo-fim'),
+    retorno_jogos: valorOuNull('cfg-retorno'),
+    pontos_vitoria: parseInt(document.getElementById('cfg-pts-vitoria').value, 10) || 0,
+    pontos_empate: parseInt(document.getElementById('cfg-pts-empate').value, 10) || 0,
+    pontos_derrota: parseInt(document.getElementById('cfg-pts-derrota').value, 10) || 0,
+  };
+
+  const { error } = await supabaseClient.from('torneios').update(atualizacao).eq('id', torneioAtualId);
+  if (error) { mostrarMsg('config-msg', error.message, 'erro'); return; }
+
+  mostrarMsg('config-msg', 'Configurações salvas. Se já tinha calendário gerado, refaça em Jogos → Gerar calendário.', 'ok');
 }
 
 function slugSugerido(nome) {
