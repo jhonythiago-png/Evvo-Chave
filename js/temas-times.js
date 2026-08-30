@@ -9,33 +9,33 @@ const TEMAS_TIMES = {
   sulamericano: {
     label: 'Seleções Sul-Americanas',
     times: [
-      { nome: 'Argentina', cor: '#75AADB' },
-      { nome: 'Brasil', cor: '#FFDF00' },
-      { nome: 'Uruguai', cor: '#7DA8D9' },
-      { nome: 'Colômbia', cor: '#FCD116' },
-      { nome: 'Chile', cor: '#D52B1E' },
-      { nome: 'Peru', cor: '#D91023' },
-      { nome: 'Equador', cor: '#FFD100' },
-      { nome: 'Paraguai', cor: '#D52B1E' },
-      { nome: 'Venezuela', cor: '#FFCC00' },
-      { nome: 'Bolívia', cor: '#007A33' },
+      { nome: 'Argentina', cor: '#75AADB', bandeira: '🇦🇷' },
+      { nome: 'Brasil', cor: '#FFDF00', bandeira: '🇧🇷' },
+      { nome: 'Uruguai', cor: '#7DA8D9', bandeira: '🇺🇾' },
+      { nome: 'Colômbia', cor: '#FCD116', bandeira: '🇨🇴' },
+      { nome: 'Chile', cor: '#D52B1E', bandeira: '🇨🇱' },
+      { nome: 'Peru', cor: '#D91023', bandeira: '🇵🇪' },
+      { nome: 'Equador', cor: '#FFD100', bandeira: '🇪🇨' },
+      { nome: 'Paraguai', cor: '#D52B1E', bandeira: '🇵🇾' },
+      { nome: 'Venezuela', cor: '#FFCC00', bandeira: '🇻🇪' },
+      { nome: 'Bolívia', cor: '#007A33', bandeira: '🇧🇴' },
     ],
   },
   selecoes_copa: {
     label: 'Seleções (Copa do Mundo)',
     times: [
-      { nome: 'Brasil', cor: '#FFDF00' },
-      { nome: 'Argentina', cor: '#75AADB' },
-      { nome: 'Alemanha', cor: '#54685D' },
-      { nome: 'França', cor: '#0B3D91' },
-      { nome: 'Espanha', cor: '#FFB627' },
-      { nome: 'Itália', cor: '#22A567' },
-      { nome: 'Inglaterra', cor: '#7E9488' },
-      { nome: 'Portugal', cor: '#3E8ED9' },
-      { nome: 'Holanda', cor: '#FF8A3D' },
-      { nome: 'Bélgica', cor: '#E2574C' },
-      { nome: 'Uruguai', cor: '#7DA8D9' },
-      { nome: 'Croácia', cor: '#E2574C' },
+      { nome: 'Brasil', cor: '#FFDF00', bandeira: '🇧🇷' },
+      { nome: 'Argentina', cor: '#75AADB', bandeira: '🇦🇷' },
+      { nome: 'Alemanha', cor: '#54685D', bandeira: '🇩🇪' },
+      { nome: 'França', cor: '#0B3D91', bandeira: '🇫🇷' },
+      { nome: 'Espanha', cor: '#FFB627', bandeira: '🇪🇸' },
+      { nome: 'Itália', cor: '#22A567', bandeira: '🇮🇹' },
+      { nome: 'Inglaterra', cor: '#7E9488', bandeira: '🇬🇧' },
+      { nome: 'Portugal', cor: '#3E8ED9', bandeira: '🇵🇹' },
+      { nome: 'Holanda', cor: '#FF8A3D', bandeira: '🇳🇱' },
+      { nome: 'Bélgica', cor: '#E2574C', bandeira: '🇧🇪' },
+      { nome: 'Uruguai', cor: '#7DA8D9', bandeira: '🇺🇾' },
+      { nome: 'Croácia', cor: '#E2574C', bandeira: '🇭🇷' },
     ],
   },
   generico: {
@@ -70,6 +70,14 @@ const TEMAS_TIMES = {
 if (typeof window !== 'undefined') {
   window.Chave = window.Chave || {};
   window.Chave.TEMAS_TIMES = TEMAS_TIMES;
+
+  // mapa nome->bandeira pra exibição, sem precisar guardar isso no banco
+  window.Chave.BANDEIRA_POR_NOME = {};
+  Object.values(TEMAS_TIMES).forEach((tema) => {
+    (tema.times || []).forEach((t) => {
+      if (t.bandeira) window.Chave.BANDEIRA_POR_NOME[t.nome] = t.bandeira;
+    });
+  });
 }
 
 if (typeof module !== 'undefined') {
