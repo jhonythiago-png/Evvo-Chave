@@ -872,7 +872,8 @@ async function carregarTimesFormados() {
     const somaNivel = jogadoresDoTime.reduce((s, j) => s + (j.nivel_tecnico || 0), 0);
     const nivelMedio = jogadoresDoTime.length ? (somaNivel / jogadoresDoTime.length).toFixed(1) : '—';
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${t.nome}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
+    const bandeira = window.Chave.BANDEIRA_POR_NOME[t.nome] || '';
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeira ? bandeira + ' ' : ''}${t.nome}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
     jogadoresDoTime.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
@@ -943,7 +944,8 @@ async function rodarSorteio() {
   resultado.times.forEach((t) => {
     const jogadoresOrdenados = [...t.jogadores].sort((a, b) => ORDEM_POSICOES_EXIBICAO.indexOf(a.posicao) - ORDEM_POSICOES_EXIBICAO.indexOf(b.posicao));
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${t.nome}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
+    const bandeira = window.Chave.BANDEIRA_POR_NOME[t.nome] || '';
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeira ? bandeira + ' ' : ''}${t.nome}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
     jogadoresOrdenados.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
