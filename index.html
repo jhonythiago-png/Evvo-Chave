@@ -958,10 +958,18 @@ async function carregarParticipantes() {
   tbody.innerHTML = '';
   (participantes || []).forEach((p) => {
     const tr = document.createElement('tr');
-    const statusCell = p.time_id
+    const timeCell = p.time_id
       ? `<span class="pill ativo">${nomeTime(p.time_id) || 'Sorteado'}</span>`
       : '<span class="pill pendente">Sem time</span>';
-    tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${statusCell}</td>`;
+
+    let disciplinaCell = '';
+    if (p.status === 'suspenso') {
+      disciplinaCell = `<span class="pill pendente">Suspenso</span> <span class="btn small secondary" style="display:inline-block;margin-left:4px;cursor:pointer;" onclick="liberarJogador('${p.id}')">Liberar</span>`;
+    } else if (p.status === 'eliminado') {
+      disciplinaCell = '<span class="pill" style="background:rgba(226,87,76,0.14);color:var(--red);">Eliminado</span>';
+    }
+
+    tr.innerHTML = `<td>${p.nome}</td><td>${p.idade ?? '—'}</td><td>${p.nivel_tecnico ?? '—'}</td><td>${p.posicao ?? '—'}</td><td>${timeCell}</td><td>${disciplinaCell}</td>`;
     tbody.appendChild(tr);
   });
   return participantes || [];
@@ -1223,6 +1231,50 @@ async function buscarParticipantesEEventos() {
   return { participantes: participantes || [], eventos: eventos || [] };
 }
 
+// ---------------- DISCIPLINA (suspensão / eliminação automática) ----------------
+// Só ESCALA status pra cima (ativo -> suspenso -> eliminado), nunca reverte
+// sozinho — o sistema não sabe quando a suspensão foi cumprida (não existe
+// escalação por jogo ainda), então quem libera de volta é o admin, manualmente.
+function grupoDeFase(fase) {
+  return fase === 'grupos' ? 'grupos' : 'mata_mata';
+}
+
+async function avaliarDisciplina(participanteId) {
+  const { data: participanteAtual } = await supabaseClient.from('participantes').select('status').eq('id', participanteId).single();
+  if (!participanteAtual || participanteAtual.status === 'eliminado') return; // eliminado é definitivo
+
+  const { data: eventosDoJogador } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo').eq('participante_id', participanteId);
+  const jogoIds = [...new Set((eventosDoJogador || []).map((e) => e.jogo_id))];
+  const { data: jogosRelacionados } = jogoIds.length
+    ? await supabaseClient.from('jogos').select('id, fase').in('id', jogoIds)
+    : { data: [] };
+  const faseDoJogo = (id) => (jogosRelacionados || []).find((j) => j.id === id)?.fase;
+
+  // se já tem evento no mata-mata, o que vale é só a contagem do mata-mata
+  // (os amarelos da fase de grupos já "zeraram") — mas isso NUNCA reverte uma
+  // suspensão/eliminação que já tenha sido decidida antes (guard acima).
+  const temEventoMataMata = (eventosDoJogador || []).some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
+  const grupoRelevante = temEventoMataMata ? 'mata_mata' : 'grupos';
+  const eventosRelevantes = (eventosDoJogador || []).filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
+
+  const amarelos = eventosRelevantes.filter((e) => e.tipo === 'cartao_amarelo').length;
+  const vermelhos = eventosRelevantes.filter((e) => e.tipo === 'cartao_vermelho').length;
+
+  let novoStatus = participanteAtual.status;
+  if (vermelhos >= 1 && amarelos < 2) novoStatus = 'eliminado'; // vermelho direto
+  else if (amarelos >= 2 || vermelhos >= 1) novoStatus = 'suspenso'; // 2º amarelo (com ou sem o vermelho da expulsão)
+
+  if (novoStatus !== participanteAtual.status) {
+    await supabaseClient.from('participantes').update({ status: novoStatus }).eq('id', participanteId);
+  }
+}
+
+async function liberarJogador(participanteId) {
+  await supabaseClient.from('participantes').update({ status: 'ativo' }).eq('id', participanteId);
+  await carregarParticipantes();
+  await carregarEstatisticas();
+}
+
 async function registrarEvento(jogoId) {
   const participanteId = document.getElementById(`evento-jogador-${jogoId}`).value;
   const tipo = document.getElementById(`evento-tipo-${jogoId}`).value;
@@ -1231,16 +1283,22 @@ async function registrarEvento(jogoId) {
   const { error } = await supabaseClient.from('eventos_partida').insert({ torneio_id: torneioAtualId, jogo_id: jogoId, participante_id: participanteId, tipo });
   if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
 
+  if (tipo === 'cartao_amarelo' || tipo === 'cartao_vermelho') await avaliarDisciplina(participanteId);
+
   await carregarJogosEClassificacao();
   await carregarMataMata();
   await carregarEstatisticas();
+  await carregarParticipantes();
 }
 
 async function removerEvento(eventoId) {
+  const { data: evento } = await supabaseClient.from('eventos_partida').select('participante_id, tipo').eq('id', eventoId).single();
   await supabaseClient.from('eventos_partida').delete().eq('id', eventoId);
+
   await carregarJogosEClassificacao();
   await carregarMataMata();
   await carregarEstatisticas();
+  await carregarParticipantes();
 }
 
 async function carregarJogosEClassificacao() {
