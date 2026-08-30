@@ -147,6 +147,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .rank-qtd{font-family:'JetBrains Mono',monospace;font-weight:600;}
 .config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 20px;}
 .config-grid .campo label{margin-top:0;}
+.config-grid .campo input{min-width:0;max-width:100%;}
+.config-grid .campo{min-width:0;}
 
 .mobile-topbar{display:none;}
 .drawer-backdrop{display:none;}
@@ -1204,8 +1206,11 @@ async function gerarCalendario() {
 }
 
 // ---------------- EVENTOS DE PARTIDA (gols e cartões por jogador) ----------------
-function montarEventosHtml(jogoId, jogadoresDoJogo, eventosDoJogo) {
-  const opcoesJogadores = jogadoresDoJogo.map((p) => `<option value="${p.id}">${p.nome}</option>`).join('');
+function montarEventosHtml(jogoId, timeAId, nomeA, timeBId, nomeB, jogadoresDoJogo, eventosDoJogo) {
+  const jogadoresA = jogadoresDoJogo.filter((p) => p.time_id === timeAId);
+  const jogadoresB = jogadoresDoJogo.filter((p) => p.time_id === timeBId);
+  const opcoesGrupo = (nome, lista) => `<optgroup label="${nome}">${lista.map((p) => `<option value="${p.id}">${p.nome}</option>`).join('')}</optgroup>`;
+  const opcoesJogadores = opcoesGrupo(nomeA, jogadoresA) + opcoesGrupo(nomeB, jogadoresB);
   const eventosDesseJogo = eventosDoJogo.filter((e) => e.jogo_id === jogoId);
   const rotuloTipo = { gol: '⚽ Gol', cartao_amarelo: '🟨 Amarelo', cartao_vermelho: '🟥 Vermelho' };
 
@@ -1340,9 +1345,12 @@ async function removerEvento(eventoId) {
 }
 
 async function carregarJogosEClassificacao() {
+  const { data: torneio } = await supabaseClient.from('torneios').select('duracao_partida_min').eq('id', torneioAtualId).single();
+  const duracaoPartida = torneio?.duracao_partida_min || 20;
+
   const { data: jogos } = await supabaseClient
     .from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
-    .eq('torneio_id', torneioAtualId).eq('fase', 'grupos').order('rodada', { ascending: true });
+    .eq('torneio_id', torneioAtualId).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
 
   const { participantes, eventos } = await buscarParticipantesEEventos();
 
@@ -1350,17 +1358,24 @@ async function carregarJogosEClassificacao() {
   lista.innerHTML = '';
   (jogos || []).forEach((j) => {
     const jogadoresDoJogo = participantes.filter((p) => p.time_id === j.time_a_id || p.time_id === j.time_b_id);
+    const bandeiraA = window.Chave.BANDEIRA_POR_NOME[j.time_a?.nome] || '';
+    const bandeiraB = window.Chave.BANDEIRA_POR_NOME[j.time_b?.nome] || '';
+    let horarioTexto = j.horario_previsto?.slice(0, 5) || '';
+    if (j.horario_previsto) {
+      const inicioMin = window.Chave.hhmmParaMinutos(j.horario_previsto.slice(0, 5));
+      horarioTexto = `${horarioTexto} - ${window.Chave.minutosParaHhmm(inicioMin + duracaoPartida)}`;
+    }
     const div = document.createElement('div');
     div.className = 'jogo-card';
     div.innerHTML = `
-      <div class="meta">${j.grupos?.nome || ''} · ${j.horario_previsto?.slice(0,5) || ''} · Campo ${j.campo_numero}</div>
+      <div class="meta">${j.grupos?.nome || ''} · ${horarioTexto} · Campo ${j.campo_numero}</div>
       <div class="confronto">
-        <span class="time-nome">${j.time_a?.nome}</span>
+        <span class="time-nome">${bandeiraA ? bandeiraA + ' ' : ''}${j.time_a?.nome}</span>
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
-        <span class="time-nome direita">${j.time_b?.nome}</span>
+        <span class="time-nome direita">${bandeiraB ? bandeiraB + ' ' : ''}${j.time_b?.nome}</span>
       </div>
       <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
-      ${montarEventosHtml(j.id, jogadoresDoJogo, eventos)}
+      ${montarEventosHtml(j.id, j.time_a_id, j.time_a?.nome, j.time_b_id, j.time_b?.nome, jogadoresDoJogo, eventos)}
     `;
     lista.appendChild(div);
   });
@@ -1500,14 +1515,16 @@ async function carregarMataMata() {
   (jogos || []).forEach((j) => {
     const empatado = j.status === 'encerrado' && j.gols_a === j.gols_b && (j.penaltis_a == null || j.penaltis_b == null);
     const jogadoresDoJogo = participantes.filter((p) => p.time_id === j.time_a_id || p.time_id === j.time_b_id);
+    const bandeiraA = window.Chave.BANDEIRA_POR_NOME[j.time_a?.nome] || '';
+    const bandeiraB = window.Chave.BANDEIRA_POR_NOME[j.time_b?.nome] || '';
     const div = document.createElement('div');
     div.className = 'jogo-card';
     div.innerHTML = `
       <div class="meta">${rotulo[j.fase] || j.fase}</div>
       <div class="confronto">
-        <span class="time-nome">${j.time_a?.nome}</span>
+        <span class="time-nome">${bandeiraA ? bandeiraA + ' ' : ''}${j.time_a?.nome}</span>
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
-        <span class="time-nome direita">${j.time_b?.nome}</span>
+        <span class="time-nome direita">${bandeiraB ? bandeiraB + ' ' : ''}${j.time_b?.nome}</span>
       </div>
       ${empatado || j.penaltis_a != null ? `
       <div class="confronto" style="margin-top:8px;">
@@ -1516,7 +1533,7 @@ async function carregarMataMata() {
         <span></span>
       </div>` : ''}
       <button class="btn secondary salvar-btn" onclick="lancarPlacarMataMata('${j.id}')">Salvar placar</button>
-      ${montarEventosHtml(j.id, jogadoresDoJogo, eventos)}
+      ${montarEventosHtml(j.id, j.time_a_id, j.time_a?.nome, j.time_b_id, j.time_b?.nome, jogadoresDoJogo, eventos)}
     `;
     lista.appendChild(div);
 
