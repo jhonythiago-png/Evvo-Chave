@@ -45,24 +45,24 @@ const TEMAS_TIMES = {
   clubes_brasileiros: {
     label: 'Clubes Brasileiros',
     times: [
-      { nome: 'Flamengo', cor: '#E2231A' },
-      { nome: 'Palmeiras', cor: '#006437' },
-      { nome: 'Corinthians', cor: '#1A1A1A' },
-      { nome: 'São Paulo', cor: '#FE0000' },
-      { nome: 'Santos', cor: '#2B2B2B' },
-      { nome: 'Grêmio', cor: '#0D80C4' },
-      { nome: 'Internacional', cor: '#E30613' },
-      { nome: 'Cruzeiro', cor: '#003DA5' },
-      { nome: 'Atlético-MG', cor: '#3D3D3D' },
-      { nome: 'Fluminense', cor: '#7A1F2B' },
-      { nome: 'Botafogo', cor: '#2B2B2B' },
-      { nome: 'Vasco da Gama', cor: '#1A1A1A' },
-      { nome: 'Bahia', cor: '#003DA5' },
-      { nome: 'Fortaleza', cor: '#1560BD' },
-      { nome: 'Athletico-PR', cor: '#C8102E' },
-      { nome: 'Vitória', cor: '#C8102E' },
-      { nome: 'Sport', cor: '#C8102E' },
-      { nome: 'Coritiba', cor: '#00693E' },
+      { nome: 'Flamengo', cor: '#E2231A', abrev: 'FLA' },
+      { nome: 'Palmeiras', cor: '#006437', abrev: 'PAL' },
+      { nome: 'Corinthians', cor: '#1A1A1A', abrev: 'COR' },
+      { nome: 'São Paulo', cor: '#FE0000', abrev: 'SAO' },
+      { nome: 'Santos', cor: '#2B2B2B', abrev: 'SAN' },
+      { nome: 'Grêmio', cor: '#0D80C4', abrev: 'GRE' },
+      { nome: 'Internacional', cor: '#E30613', abrev: 'INT' },
+      { nome: 'Cruzeiro', cor: '#003DA5', abrev: 'CRU' },
+      { nome: 'Atlético-MG', cor: '#3D3D3D', abrev: 'CAM' },
+      { nome: 'Fluminense', cor: '#7A1F2B', abrev: 'FLU' },
+      { nome: 'Botafogo', cor: '#2B2B2B', abrev: 'BOT' },
+      { nome: 'Vasco da Gama', cor: '#1A1A1A', abrev: 'VAS' },
+      { nome: 'Bahia', cor: '#003DA5', abrev: 'BAH' },
+      { nome: 'Fortaleza', cor: '#1560BD', abrev: 'FOR' },
+      { nome: 'Athletico-PR', cor: '#C8102E', abrev: 'CAP' },
+      { nome: 'Vitória', cor: '#C8102E', abrev: 'VIT' },
+      { nome: 'Sport', cor: '#C8102E', abrev: 'SPT' },
+      { nome: 'Coritiba', cor: '#00693E', abrev: 'CFC' },
     ],
   },
 };
@@ -73,9 +73,11 @@ if (typeof window !== 'undefined') {
 
   // mapa nome->bandeira pra exibição, sem precisar guardar isso no banco
   window.Chave.BANDEIRA_POR_NOME = {};
+  window.Chave.ABREVIACAO_POR_NOME = {};
   Object.values(TEMAS_TIMES).forEach((tema) => {
     (tema.times || []).forEach((t) => {
       if (t.bandeira) window.Chave.BANDEIRA_POR_NOME[t.nome] = t.bandeira;
+      if (t.abrev) window.Chave.ABREVIACAO_POR_NOME[t.nome] = t.abrev;
     });
   });
 }
