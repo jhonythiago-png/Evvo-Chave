@@ -65,53 +65,86 @@ function calcularClassificacao(jogosEncerrados, times, config = {}) {
 
   linhas.sort((x, y) => y.pts - x.pts || y.sg - x.sg || y.gp - x.gp);
 
-  // agrupa possíveis empates remanescentes (mesmo pts, sg e gp) para aplicar
-  // confronto direto e, por fim, sinalizar necessidade de sorteio
+  // ---- gera avisos explicando QUALQUER empate em pontos, não só os mais
+  // apertados — mesmo quando o saldo de gols já resolve sozinho (é o caso
+  // mais comum na prática, e o usuário precisa ver o porquê na tela) ----
   const avisos = [];
-  let i = 0;
-  while (i < linhas.length) {
-    let j = i;
-    while (
-      j + 1 < linhas.length &&
-      linhas[j + 1].pts === linhas[i].pts &&
-      linhas[j + 1].sg === linhas[i].sg &&
-      linhas[j + 1].gp === linhas[i].gp
-    ) j++;
 
-    if (j > i) {
-      const empatados = linhas.slice(i, j + 1);
-      const ids = empatados.map((t) => t.time_id);
-      const saldoEntreSi = confrontoDireto(ids);
-      const aindaEmpatam = new Set();
-
-      empatados.sort((x, y) => saldoEntreSi[y.time_id] - saldoEntreSi[x.time_id]);
-      for (let k = 0; k < empatados.length - 1; k++) {
-        if (saldoEntreSi[empatados[k].time_id] === saldoEntreSi[empatados[k + 1].time_id]) {
-          aindaEmpatam.add(empatados[k].time_id);
-          aindaEmpatam.add(empatados[k + 1].time_id);
-        }
-      }
-
-      for (let k = i; k <= j; k++) linhas[k] = empatados[k - i];
-
-      if (aindaEmpatam.size > 0) {
-        const nomes = empatados.filter((t) => aindaEmpatam.has(t.time_id)).map((t) => t.nome);
-        avisos.push({
-          tipo: 'sorteio_necessario',
-          times: nomes,
-          mensagem: `${nomes.join(' e ')} seguem empatados em pontos, saldo, gols pró e confronto direto — decisão precisa ser por sorteio.`,
-        });
-      } else {
-        const nomes = empatados.map((t) => t.nome);
-        avisos.push({
-          tipo: 'confronto_direto_decidiu',
-          times: nomes,
-          mensagem: `${nomes.join(' e ')} empatavam em pontos, saldo e gols pró — desempatado pelo confronto direto.`,
-        });
-      }
+  function agruparPorChaveIgual(lista, chave) {
+    const grupos = [];
+    let atual = [lista[0]];
+    for (let k = 1; k < lista.length; k++) {
+      if (lista[k][chave] === atual[0][chave]) atual.push(lista[k]);
+      else { grupos.push(atual); atual = [lista[k]]; }
     }
-    i = j + 1;
+    grupos.push(atual);
+    return grupos;
   }
+
+  const gruposPorPontos = agruparPorChaveIgual(linhas, 'pts');
+  gruposPorPontos.forEach((grupoPts) => {
+    if (grupoPts.length < 2) return;
+    const nomesGrupoPts = grupoPts.map((t) => t.nome);
+
+    const gruposPorSaldo = agruparPorChaveIgual(grupoPts, 'sg');
+    if (gruposPorSaldo.length > 1) {
+      avisos.push({
+        tipo: 'saldo_decidiu',
+        times: nomesGrupoPts,
+        mensagem: `${nomesGrupoPts.join(' e ')} empataram em pontos (${grupoPts[0].pts}) — desempate pelo saldo de gols.`,
+      });
+    }
+
+    gruposPorSaldo.forEach((grupoSg) => {
+      if (grupoSg.length < 2) return;
+      const nomesGrupoSg = grupoSg.map((t) => t.nome);
+
+      const gruposPorGp = agruparPorChaveIgual(grupoSg, 'gp');
+      if (gruposPorGp.length > 1) {
+        avisos.push({
+          tipo: 'gols_pro_decidiu',
+          times: nomesGrupoSg,
+          mensagem: `${nomesGrupoSg.join(' e ')} empataram em pontos e saldo de gols — desempate pelos gols pró.`,
+        });
+      }
+
+      gruposPorGp.forEach((grupoGp) => {
+        if (grupoGp.length < 2) return; // empate total (pts+sg+gp) — vai pro confronto direto
+        const ids = grupoGp.map((t) => t.time_id);
+        const saldoEntreSi = confrontoDireto(ids);
+        const empatadosOrdenados = [...grupoGp].sort((x, y) => saldoEntreSi[y.time_id] - saldoEntreSi[x.time_id]);
+
+        // reflete a ordem do confronto direto na tabela final (o sort global
+        // não sabia desse critério, só entra em pts/sg/gp)
+        const indiceInicial = linhas.findIndex((t) => t.time_id === grupoGp[0].time_id);
+        for (let k = 0; k < empatadosOrdenados.length; k++) linhas[indiceInicial + k] = empatadosOrdenados[k];
+
+        const aindaEmpatam = new Set();
+        for (let k = 0; k < empatadosOrdenados.length - 1; k++) {
+          if (saldoEntreSi[empatadosOrdenados[k].time_id] === saldoEntreSi[empatadosOrdenados[k + 1].time_id]) {
+            aindaEmpatam.add(empatadosOrdenados[k].time_id);
+            aindaEmpatam.add(empatadosOrdenados[k + 1].time_id);
+          }
+        }
+
+        if (aindaEmpatam.size > 0) {
+          const nomes = empatadosOrdenados.filter((t) => aindaEmpatam.has(t.time_id)).map((t) => t.nome);
+          avisos.push({
+            tipo: 'sorteio_necessario',
+            times: nomes,
+            mensagem: `${nomes.join(' e ')} seguem empatados em pontos, saldo, gols pró e confronto direto — decisão precisa ser por sorteio.`,
+          });
+        } else {
+          const nomes = empatadosOrdenados.map((t) => t.nome);
+          avisos.push({
+            tipo: 'confronto_direto_decidiu',
+            times: nomes,
+            mensagem: `${nomes.join(' e ')} empatavam em pontos, saldo e gols pró — desempatado pelo confronto direto.`,
+          });
+        }
+      });
+    });
+  });
 
   return { classificacao: linhas, avisos };
 }
