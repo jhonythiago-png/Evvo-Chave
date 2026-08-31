@@ -1542,20 +1542,27 @@ async function liberarJogador(participanteId) {
   await carregarEstatisticas();
 }
 
+const eventosEmEnvio = new Set(); // trava contra clique duplo rápido no "+ Evento"
 async function registrarEvento(jogoId) {
-  const participanteId = document.getElementById(`evento-jogador-${jogoId}`).value;
-  const tipo = document.getElementById(`evento-tipo-${jogoId}`).value;
-  if (!participanteId) return;
+  if (eventosEmEnvio.has(jogoId)) return;
+  eventosEmEnvio.add(jogoId);
+  try {
+    const participanteId = document.getElementById(`evento-jogador-${jogoId}`).value;
+    const tipo = document.getElementById(`evento-tipo-${jogoId}`).value;
+    if (!participanteId) return;
 
-  const { error } = await supabaseClient.from('eventos_partida').insert({ torneio_id: torneioAtualId, jogo_id: jogoId, participante_id: participanteId, tipo });
-  if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
+    const { error } = await supabaseClient.from('eventos_partida').insert({ torneio_id: torneioAtualId, jogo_id: jogoId, participante_id: participanteId, tipo });
+    if (error) { mostrarMsg('jogos-msg', error.message, 'erro'); return; }
 
-  if (tipo === 'cartao_amarelo' || tipo === 'cartao_vermelho') await avaliarDisciplina(participanteId, jogoId);
+    if (tipo === 'cartao_amarelo' || tipo === 'cartao_vermelho') await avaliarDisciplina(participanteId, jogoId);
 
-  await carregarJogosEClassificacao();
-  await carregarMataMata();
-  await carregarEstatisticas();
-  await carregarParticipantes();
+    await carregarJogosEClassificacao();
+    await carregarMataMata();
+    await carregarEstatisticas();
+    await carregarParticipantes();
+  } finally {
+    eventosEmEnvio.delete(jogoId);
+  }
 }
 
 // Recalcula o status do jogador DO ZERO a partir dos eventos que existem
