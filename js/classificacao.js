@@ -91,7 +91,7 @@ function calcularClassificacao(jogosEncerrados, times, config = {}) {
       avisos.push({
         tipo: 'saldo_decidiu',
         times: nomesGrupoPts,
-        mensagem: `${nomesGrupoPts.join(' e ')} empataram em pontos (${grupoPts[0].pts}) — desempate pelo saldo de gols.`,
+        mensagem: `${nomesGrupoPts.join(' e ')} empataram em pontos (${grupoPts[0].pts}) — desempate pelo saldo de gols, que classificou ${gruposPorSaldo[0][0].nome}.`,
       });
     }
 
@@ -104,7 +104,7 @@ function calcularClassificacao(jogosEncerrados, times, config = {}) {
         avisos.push({
           tipo: 'gols_pro_decidiu',
           times: nomesGrupoSg,
-          mensagem: `${nomesGrupoSg.join(' e ')} empataram em pontos e saldo de gols — desempate pelos gols pró.`,
+          mensagem: `${nomesGrupoSg.join(' e ')} empataram em pontos e saldo de gols — desempate pelos gols pró, que classificou ${gruposPorGp[0][0].nome}.`,
         });
       }
 
@@ -139,7 +139,7 @@ function calcularClassificacao(jogosEncerrados, times, config = {}) {
           avisos.push({
             tipo: 'confronto_direto_decidiu',
             times: nomes,
-            mensagem: `${nomes.join(' e ')} empatavam em pontos, saldo e gols pró — desempatado pelo confronto direto.`,
+            mensagem: `${nomes.join(' e ')} empatavam em pontos, saldo e gols pró — desempatado pelo confronto direto, que classificou ${empatadosOrdenados[0].nome}.`,
           });
         }
       });
