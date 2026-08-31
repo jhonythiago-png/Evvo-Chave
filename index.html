@@ -572,6 +572,16 @@ function mostrarMsg(elId, texto, tipo) {
   document.getElementById(elId).innerHTML = `<div class="msg ${tipo}">${texto}</div>`;
 }
 
+// Aviso quando ALGUM jogador desse jogo específico está cumprindo suspensão
+// justamente nele (suspenso_ate_jogo_id aponta pra esse jogo) — pra ficar
+// visível de cara quem não pode jogar essa partida.
+function avisoSuspensosHtml(jogadoresDoJogo, jogoId) {
+  const suspensosNesseJogo = jogadoresDoJogo.filter((p) => p.status === 'suspenso' && p.suspenso_ate_jogo_id === jogoId);
+  if (suspensosNesseJogo.length === 0) return '';
+  const nomes = suspensosNesseJogo.map((p) => p.nome).join(', ');
+  return `<div class="msg aviso" style="margin-top:8px;">🚫 Não pode jogar esta partida (suspenso): ${nomes}</div>`;
+}
+
 // Bandeira como IMAGEM (não emoji) — emoji de bandeira não renderiza no Windows
 // (mostra só a sigla do país), imagem funciona igual em qualquer sistema.
 function bandeiraImg(nomeTime) {
@@ -1282,7 +1292,7 @@ function montarEventosHtml(jogoId, timeAId, nomeA, timeBId, nomeB, jogadoresDoJo
 }
 
 async function buscarParticipantesEEventos() {
-  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneioAtualId);
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id, status, suspenso_ate_jogo_id').eq('torneio_id', torneioAtualId);
   const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneioAtualId);
   return { participantes: participantes || [], eventos: eventos || [] };
 }
@@ -1417,6 +1427,7 @@ async function carregarJogosEClassificacao() {
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
         <span class="time-nome direita">${bandeiraImg(j.time_b?.nome)}${j.time_b?.nome}</span>
       </div>
+      ${avisoSuspensosHtml(jogadoresDoJogo, j.id)}
       <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
       ${montarEventosHtml(j.id, j.time_a_id, j.time_a?.nome, j.time_b_id, j.time_b?.nome, jogadoresDoJogo, eventos)}
     `;
@@ -1495,6 +1506,19 @@ async function calcularHorarioContinuacao(torneio) {
   return window.Chave.minutosParaHhmm(maiorFim + (torneio.intervalo_troca_min || 0));
 }
 
+// Se um jogador ficou suspenso sem "próximo jogo" pra apontar (porque, no
+// momento da suspensão, o time ainda não tinha mais partida agendada — ex:
+// suspenso no último jogo de grupo, antes do mata-mata existir), reconecta
+// a suspensão pendente assim que esse novo jogo é criado.
+async function associarSuspensosPendentes(timeId, jogoId) {
+  if (!timeId) return;
+  await supabaseClient.from('participantes')
+    .update({ suspenso_ate_jogo_id: jogoId })
+    .eq('time_id', timeId)
+    .eq('status', 'suspenso')
+    .is('suspenso_ate_jogo_id', null);
+}
+
 async function agendarConfrontosMataMata(confrontos) {
   const { data: torneio } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
   const horarioInicio = await calcularHorarioContinuacao(torneio);
@@ -1554,11 +1578,13 @@ async function gerarMataMata() {
   const confrontosAgendados = await agendarConfrontosMataMata(confrontos);
 
   for (const c of confrontosAgendados) {
-    const { error } = await supabaseClient.from('jogos').insert({
+    const { data: novoJogo, error } = await supabaseClient.from('jogos').insert({
       torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id,
       campo_numero: c.campo_numero, horario_previsto: c.horario_previsto,
-    });
+    }).select().single();
     if (error) { mostrarMsg('matamata-msg', error.message, 'erro'); return; }
+    await associarSuspensosPendentes(c.time_a_id, novoJogo.id);
+    await associarSuspensosPendentes(c.time_b_id, novoJogo.id);
   }
 
   mostrarMsg('matamata-msg', total === 2 ? 'Final gerada direto (2 classificados).' : 'Semifinais geradas.', 'ok');
@@ -1627,6 +1653,7 @@ async function carregarMataMata() {
         <span class="placar"><input type="number" min="0" id="pen-a-${j.id}" value="${j.penaltis_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="pen-b-${j.id}" value="${j.penaltis_b ?? ''}" placeholder="0"></span>
         <span></span>
       </div>` : ''}
+      ${avisoSuspensosHtml(jogadoresDoJogo, j.id)}
       <button class="btn secondary salvar-btn" onclick="lancarPlacarMataMata('${j.id}')">Salvar placar</button>
       ${montarEventosHtml(j.id, j.time_a_id, j.time_a?.nome, j.time_b_id, j.time_b?.nome, jogadoresDoJogo, eventos)}
     `;
@@ -1688,10 +1715,14 @@ async function avancarMataMataSeNecessario() {
   ]);
 
   for (const c of confrontosAgendados) {
-    await supabaseClient.from('jogos').insert({
+    const { data: novoJogo } = await supabaseClient.from('jogos').insert({
       torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id,
       campo_numero: c.campo_numero, horario_previsto: c.horario_previsto,
-    });
+    }).select().single();
+    if (novoJogo) {
+      await associarSuspensosPendentes(c.time_a_id, novoJogo.id);
+      await associarSuspensosPendentes(c.time_b_id, novoJogo.id);
+    }
   }
 }
 
