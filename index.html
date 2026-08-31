@@ -1232,11 +1232,8 @@ async function montarConteudoPublico(torneio) {
     .map((r) => `<div class="rank-row-simples"><span class="rank-nome">${r.label} ${r.participante.nome}</span><span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span><span class="rank-qtd">${r.qtd}</span></div>`).join('');
 
   document.getElementById('pub-stats').innerHTML = `
-    <div class="painel" style="max-width:560px;margin-bottom:16px;">
-      <h3>Colocação final</h3>
-      ${htmlColocacao}
-    </div>
-    <div class="two-col">
+    <div class="teams-grid">
+      <div class="painel"><h3>Colocação final</h3>${htmlColocacao}</div>
       <div class="painel"><h3>Artilharia</h3>${renderRankingPublico(artilheiros, 'var(--amber)')}</div>
       <div class="painel"><h3>Cartões</h3>${cartoesHtmlPub || '<div class="msg aviso">Nenhum cartão registrado ainda.</div>'}</div>
     </div>
@@ -1876,7 +1873,7 @@ async function atualizarClassificacao() {
     });
     html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
-    classificacao.forEach((t) => { html += `<tr><td>${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
+    classificacao.forEach((t) => { html += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
     html += '</table>';
     avisos.forEach((a) => { html += `<div class="msg aviso" style="margin-top:8px;">${a.mensagem}</div>`; });
     html += '</div>';
