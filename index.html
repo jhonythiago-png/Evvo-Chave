@@ -693,9 +693,20 @@ function escaparHtml(texto) {
     .replace(/'/g, '&#39;');
 }
 
-function bandeiraImg(nomeTime) {
-  const codigo = window.Chave.BANDEIRA_POR_NOME[nomeTime];
-  return codigo ? `<img src="https://flagcdn.com/24x18/${codigo}.png" alt="" style="width:18px;height:13px;border-radius:2px;vertical-align:middle;margin-right:4px;">` : '';
+// Bandeira (seleção) OU emblema genérico (clube) — nunca o escudo oficial de
+// clube, que é marca registrada. O emblema é um desenho meu (cor do time +
+// sigla), não reproduz nenhum símbolo do escudo de verdade.
+function bandeiraImg(nomeTime, cor) {
+  const codigoPais = window.Chave.BANDEIRA_POR_NOME[nomeTime];
+  if (codigoPais) {
+    return `<img src="https://flagcdn.com/24x18/${codigoPais}.png" alt="" style="width:18px;height:13px;border-radius:2px;vertical-align:middle;margin-right:4px;">`;
+  }
+  const abrev = window.Chave.ABREVIACAO_POR_NOME[nomeTime];
+  if (abrev) {
+    const corFundo = cor || '#54685D';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:16px;border-radius:3px;background:${corFundo};color:#fff;font-size:8px;font-weight:700;font-family:'Oswald',sans-serif;letter-spacing:0.02em;vertical-align:middle;margin-right:4px;">${abrev}</span>`;
+  }
+  return '';
 }
 
 // Colocação final do torneio: campeão, vice, 3º, 4º (do mata-mata) + o resto
@@ -709,7 +720,7 @@ async function calcularHtmlColocacaoFinal(torneioId) {
 
   const grupos = (gruposCrus || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
   const timeInfo = (id) => (times || []).find((t) => t.id === id);
-  const nomeComBandeiraLocal = (id) => { const t = timeInfo(id); return t ? `${bandeiraImg(t.nome)}${escaparHtml(t.nome)}` : '—'; };
+  const nomeComBandeiraLocal = (id) => { const t = timeInfo(id); return t ? `${bandeiraImg(t.nome, t.cor)}${escaparHtml(t.nome)}` : '—'; };
 
   function ganhadorPerdedorMataMata(j) {
     let vencedorId = null;
@@ -783,7 +794,7 @@ async function calcularHtmlColocacaoFinal(torneioId) {
     html += '<div class="divider" style="margin:12px 0;"></div><div style="font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Eliminados na fase de grupos</div>';
   }
   resto.forEach((t, i) => {
-    html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span class="rank-time">${t.pts} pts</span></div>`;
+    html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome, t.cor)}${escaparHtml(t.nome)}</span><span class="rank-time">${t.pts} pts</span></div>`;
   });
   avisosResto.forEach((msg) => { html += `<div class="msg aviso" style="margin-top:10px;">${msg}</div>`; });
   return html;
@@ -1075,7 +1086,7 @@ async function carregarStatGridVisaoGeral() {
   const { count: totalJogadores } = await supabaseClient.from('participantes').select('id', { count: 'exact', head: true }).eq('torneio_id', torneioAtualId);
   const { count: jogosDisputados } = await supabaseClient.from('jogos').select('id', { count: 'exact', head: true }).eq('torneio_id', torneioAtualId).eq('status', 'encerrado');
 
-  const { data: finalDecidida } = await supabaseClient.from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome)').eq('torneio_id', torneioAtualId).eq('fase', 'final').eq('status', 'encerrado');
+  const { data: finalDecidida } = await supabaseClient.from('jogos').select('*, time_a:time_a_id(nome,cor), time_b:time_b_id(nome,cor)').eq('torneio_id', torneioAtualId).eq('fase', 'final').eq('status', 'encerrado');
   let campeao = '—';
   if (finalDecidida && finalDecidida[0]) {
     const j = finalDecidida[0];
@@ -1227,7 +1238,7 @@ async function montarConteudoPublico(torneio) {
   const nomeComBandeira = (id) => {
     const t = timeInfo(id);
     if (!t) return '—';
-    return `${bandeiraImg(t.nome)}${escaparHtml(t.nome)}`;
+    return `${bandeiraImg(t.nome, t.cor)}${escaparHtml(t.nome)}`;
   };
   const corTime = (id) => timeInfo(id)?.cor || '#7E9488';
   const duracaoPartida = torneio.duracao_partida_min || 20;
@@ -1265,7 +1276,7 @@ async function montarConteudoPublico(torneio) {
     htmlGrupos += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
     classificacao.forEach((t) => {
-      htmlGrupos += `<tr><td>${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
+      htmlGrupos += `<tr><td>${bandeiraImg(t.nome, t.cor)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
     });
     htmlGrupos += '</table>';
     (avisos || []).forEach((a) => { htmlGrupos += `<div class="msg aviso" style="margin-top:10px;">${a.mensagem}</div>`; });
@@ -1495,7 +1506,7 @@ async function carregarTimesFormados() {
     const somaNivel = jogadoresDoTime.reduce((s, j) => s + (j.nivel_tecnico || 0), 0);
     const nivelMedio = jogadoresDoTime.length ? (somaNivel / jogadoresDoTime.length).toFixed(1) : '—';
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome, cor)}${escaparHtml(t.nome)}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
     jogadoresDoTime.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
@@ -1566,7 +1577,7 @@ async function rodarSorteio() {
   resultado.times.forEach((t) => {
     const jogadoresOrdenados = [...t.jogadores].sort((a, b) => ORDEM_POSICOES_EXIBICAO.indexOf(a.posicao) - ORDEM_POSICOES_EXIBICAO.indexOf(b.posicao));
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome, cor)}${escaparHtml(t.nome)}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
     jogadoresOrdenados.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
@@ -1912,7 +1923,7 @@ async function carregarJogosEClassificacao() {
   const duracaoPartida = torneio?.duracao_partida_min || 20;
 
   const { data: jogos } = await supabaseClient
-    .from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome), grupos(nome)')
+    .from('jogos').select('*, time_a:time_a_id(nome,cor), time_b:time_b_id(nome,cor), grupos(nome)')
     .eq('torneio_id', torneioAtualId).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
 
   const { participantes, eventos } = await buscarParticipantesEEventos();
@@ -1931,9 +1942,9 @@ async function carregarJogosEClassificacao() {
     div.innerHTML = `
       <div class="meta">${j.grupos?.nome || ''} · ${horarioTexto} · Campo ${j.campo_numero}</div>
       <div class="confronto">
-        <span class="time-nome">${bandeiraImg(j.time_a?.nome)}${j.time_a?.nome}</span>
+        <span class="time-nome">${bandeiraImg(j.time_a?.nome, j.time_a?.cor)}${escaparHtml(j.time_a?.nome)}</span>
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
-        <span class="time-nome direita">${bandeiraImg(j.time_b?.nome)}${j.time_b?.nome}</span>
+        <span class="time-nome direita">${bandeiraImg(j.time_b?.nome, j.time_b?.cor)}${escaparHtml(j.time_b?.nome)}</span>
       </div>
       ${avisoSuspensosHtml(jogadoresDoJogo, j.id)}
       <button class="btn secondary salvar-btn" onclick="lancarPlacar('${j.id}')">Salvar placar</button>
@@ -1972,7 +1983,7 @@ async function atualizarClassificacao() {
     });
     html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
-    classificacao.forEach((t) => { html += `<tr><td>${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
+    classificacao.forEach((t) => { html += `<tr><td>${bandeiraImg(t.nome, t.cor)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
     html += '</table>';
     avisos.forEach((a) => { html += `<div class="msg aviso" style="margin-top:8px;">${a.mensagem}</div>`; });
     html += '</div>';
@@ -2156,9 +2167,9 @@ async function carregarMataMata() {
     div.innerHTML = `
       <div class="meta">${rotulo[j.fase] || j.fase}${horarioTexto}</div>
       <div class="confronto">
-        <span class="time-nome">${bandeiraImg(j.time_a?.nome)}${j.time_a?.nome}</span>
+        <span class="time-nome">${bandeiraImg(j.time_a?.nome, j.time_a?.cor)}${escaparHtml(j.time_a?.nome)}</span>
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
-        <span class="time-nome direita">${bandeiraImg(j.time_b?.nome)}${j.time_b?.nome}</span>
+        <span class="time-nome direita">${bandeiraImg(j.time_b?.nome, j.time_b?.cor)}${escaparHtml(j.time_b?.nome)}</span>
       </div>
       ${empatado || j.penaltis_a != null ? `
       <div class="confronto" style="margin-top:8px;">
