@@ -273,7 +273,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 
 <!-- PÁGINA PÚBLICA (sem login, acessada por link com ?t=slug) -->
 <div class="tela-simples hidden" id="tela-publica-view" style="align-items:flex-start;">
-  <div class="card wide" style="max-width:900px;">
+  <div class="card wide">
     <div class="brand" style="justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 4h16v6a8 8 0 0 1-16 0V4z"/><path d="M4 6H1v2a3 3 0 0 0 3 3"/><path d="M20 6h3v2a3 3 0 0 1-3 3"/><path d="M12 18v3M8 21h8"/></svg></div>
@@ -281,7 +281,25 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
       <span class="sair" onclick="location.href = location.pathname;">← Voltar ao app</span>
     </div>
-    <div id="publica-conteudo"></div>
+    <div id="publica-cabecalho"></div>
+
+    <div class="tabs" id="publica-tabs">
+      <div class="tab active" data-pubpane="pub-visao">Visão geral</div>
+      <div class="tab" data-pubpane="pub-grupos">Grupos</div>
+      <div class="tab" data-pubpane="pub-jogos">Jogos</div>
+      <div class="tab" data-pubpane="pub-matamata">Mata-mata</div>
+      <div class="tab" data-pubpane="pub-stats">Estatísticas</div>
+      <div class="tab" data-pubpane="pub-regras">Regras</div>
+    </div>
+
+    <div class="pane active" id="pub-visao"></div>
+    <div class="pane" id="pub-grupos"></div>
+    <div class="pane" id="pub-jogos"></div>
+    <div class="pane" id="pub-matamata"></div>
+    <div class="pane" id="pub-stats"></div>
+    <div class="pane" id="pub-regras"></div>
+
+    <div id="publica-rodape"></div>
   </div>
 </div>
 
@@ -1034,10 +1052,11 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneio.id);
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
   const { data: jogosMataCrus } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+  const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneio.id);
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneio.id);
+
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
   const jogosMata = (jogosMataCrus || []).sort((a, b) => {
-    // ordem principal: horário real (3º lugar joga antes da final, e a lista
-    // precisa refletir isso). Fase só entra como desempate se faltar horário.
     const horarioA = a.horario_previsto || '';
     const horarioB = b.horario_previsto || '';
     if (horarioA !== horarioB) return horarioA.localeCompare(horarioB);
@@ -1060,56 +1079,124 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   };
   const grupos = (gruposCrus || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
 
-  let html = `
+  // ---- cabeçalho (fora das abas, sempre visível) ----
+  document.getElementById('publica-cabecalho').innerHTML = `
     <div class="tt-badge" style="margin-top:20px;"><span class="dot" style="background:${torneio.status === 'encerrado' ? 'var(--amber)' : 'var(--pitch)'};"></span> ${torneio.esporte} · ${torneio.status}</div>
     <div class="tt-title">${torneio.nome}</div>
     <div class="tt-sub">Data: ${torneio.data_evento}</div>
-    <div class="divider"></div>
   `;
 
-  html += '<h3>Classificação</h3>';
+  // ---- aba Visão geral ----
+  let campeaoNome = null;
+  const finalDecidida = (jogosMata || []).find((j) => j.fase === 'final' && j.status === 'encerrado');
+  if (finalDecidida) {
+    let vencedorId = null;
+    if (finalDecidida.gols_a > finalDecidida.gols_b) vencedorId = finalDecidida.time_a_id;
+    else if (finalDecidida.gols_b > finalDecidida.gols_a) vencedorId = finalDecidida.time_b_id;
+    else if (finalDecidida.penaltis_a != null) vencedorId = finalDecidida.penaltis_a > finalDecidida.penaltis_b ? finalDecidida.time_a_id : finalDecidida.time_b_id;
+    if (vencedorId) campeaoNome = nomeComBandeira(vencedorId);
+  }
+  const jogosDisputados = [...(jogosGrupos || []), ...(jogosMata || [])].filter((j) => j.status === 'encerrado').length;
+  document.getElementById('pub-visao').innerHTML = `
+    <div class="stat-grid" style="max-width:700px;">
+      <div class="stat-card"><div class="stat-num">${(times || []).length}</div><div class="stat-label">Times</div></div>
+      <div class="stat-card"><div class="stat-num">${jogosDisputados}</div><div class="stat-label">Jogos disputados</div></div>
+      <div class="stat-card"><div class="stat-num">${(participantes || []).length}</div><div class="stat-label">Jogadores</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:16px;">${campeaoNome || '—'}</div><div class="stat-label">Campeão</div></div>
+    </div>
+    <div class="painel" style="max-width:560px;">
+      <h3>Informações</h3>
+      <div class="info-row"><span>Data</span><span>${torneio.data_evento}</span></div>
+      <div class="info-row"><span>Horário de início</span><span>${torneio.horario_inicio?.slice(0, 5) || '—'}</span></div>
+      <div class="info-row"><span>Intervalo</span><span>${torneio.intervalo_inicio ? torneio.intervalo_inicio.slice(0, 5) + ' às ' + (torneio.intervalo_fim?.slice(0, 5) || '') : '—'}</span></div>
+      <div class="info-row"><span>Campos disponíveis</span><span>${torneio.campos_disponiveis}</span></div>
+      <div class="info-row"><span>Pontuação</span><span>${torneio.pontos_vitoria} · ${torneio.pontos_empate} · ${torneio.pontos_derrota}</span></div>
+      <div class="info-row"><span>Status</span><span>${torneio.status}</span></div>
+    </div>
+  `;
+
+  // ---- aba Grupos (classificação) ----
+  let htmlGrupos = '';
   grupos.forEach((g) => {
     const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
     const { classificacao, avisos } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
-    html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
+    htmlGrupos += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
     classificacao.forEach((t) => {
-      html += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
+      htmlGrupos += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
     });
-    html += '</table>';
-    (avisos || []).forEach((a) => { html += `<div class="msg aviso" style="margin-top:10px;">${a.mensagem}</div>`; });
-    html += '</div>';
+    htmlGrupos += '</table>';
+    (avisos || []).forEach((a) => { htmlGrupos += `<div class="msg aviso" style="margin-top:10px;">${a.mensagem}</div>`; });
+    htmlGrupos += '</div>';
   });
+  document.getElementById('pub-grupos').innerHTML = htmlGrupos || '<div class="msg aviso">Grupos ainda não sorteados.</div>';
 
-  html += '<div class="divider"></div><h3>Jogos</h3>';
+  // ---- aba Jogos ----
+  const nomeGrupo = (grupoId) => (gruposCrus || []).find((g) => g.id === grupoId)?.nome || '';
+
+  let htmlJogos = '';
   (jogosGrupos || []).forEach((j) => {
     const placar = j.status === 'encerrado' ? `${j.gols_a} x ${j.gols_b}` : 'a definir';
-    html += `<div class="jogo-card" style="border-left:4px solid ${corTime(j.time_a_id)};"><div class="meta">${faixaHorario(j.horario_previsto)}</div>
+    htmlJogos += `<div class="jogo-card" style="border-left:4px solid ${corTime(j.time_a_id)};"><div class="meta">${nomeGrupo(j.grupo_id)} ${faixaHorario(j.horario_previsto)}</div>
       <div class="confronto"><span class="time-nome">${nomeComBandeira(j.time_a_id)}</span><span class="placar mono">${placar}</span><span class="time-nome direita">${nomeComBandeira(j.time_b_id)}</span></div></div>`;
   });
+  document.getElementById('pub-jogos').innerHTML = htmlJogos || '<div class="msg aviso">Calendário ainda não gerado.</div>';
 
+  // ---- aba Mata-mata ----
+  let htmlMata = '';
   if (jogosMata && jogosMata.length > 0) {
     const rotulo = { semifinal: 'Semifinal', terceiro_lugar: '3º lugar', final: 'Final' };
-    html += '<div class="divider"></div><h3>Mata-mata</h3>';
     jogosMata.forEach((j) => {
       const placar = j.status === 'encerrado' ? `${j.gols_a} x ${j.gols_b}${j.penaltis_a != null ? ` (pên. ${j.penaltis_a}-${j.penaltis_b})` : ''}` : 'a definir';
-      html += `<div class="jogo-card" style="border-left:4px solid ${corTime(j.time_a_id)};"><div class="meta">${rotulo[j.fase]}</div>
+      htmlMata += `<div class="jogo-card" style="border-left:4px solid ${corTime(j.time_a_id)};"><div class="meta">${rotulo[j.fase]}${faixaHorario(j.horario_previsto)}</div>
         <div class="confronto"><span class="time-nome">${nomeComBandeira(j.time_a_id)}</span><span class="placar mono">${placar}</span><span class="time-nome direita">${nomeComBandeira(j.time_b_id)}</span></div></div>`;
-
-      if (j.fase === 'final' && j.status === 'encerrado') {
-        let vencedor = null;
-        if (j.gols_a > j.gols_b) vencedor = j.time_a_id;
-        else if (j.gols_b > j.gols_a) vencedor = j.time_b_id;
-        else if (j.penaltis_a != null) vencedor = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
-        if (vencedor) html = html.replace('<h3>Mata-mata</h3>', `<h3>Mata-mata</h3><div class="painel" style="text-align:center;border-color:var(--amber-dim);margin-bottom:16px;"><h3 style="margin-bottom:6px;">🏆 Campeão</h3><div class="tt-title" style="margin:0;">${nomeComBandeira(vencedor)}</div></div>`);
-      }
     });
+    if (campeaoNome) {
+      htmlMata = `<div class="painel" style="text-align:center;border-color:var(--amber-dim);margin-bottom:16px;"><h3 style="margin-bottom:6px;">🏆 Campeão</h3><div class="tt-title" style="margin:0;">${campeaoNome}</div></div>` + htmlMata;
+    }
   }
+  document.getElementById('pub-matamata').innerHTML = htmlMata || '<div class="msg aviso">Mata-mata ainda não começou.</div>';
 
-  html += `
-    <div class="divider"></div>
-    <h3>Regras & disciplina — resumo rápido</h3>
-    <div class="rules-quick-grid">${construirHtmlRegras(torneio.regras_disciplina)}</div>
+  // ---- aba Estatísticas (artilharia e cartões) ----
+  const nomeTimeDoJogador = (timeId) => timeInfo(timeId)?.nome || '—';
+  const iniciaisPublico = (nome) => nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+  const contarPorTipoPublico = (tipo) => {
+    const contagem = {};
+    (eventos || []).filter((e) => e.tipo === tipo).forEach((e) => { contagem[e.participante_id] = (contagem[e.participante_id] || 0) + 1; });
+    return Object.entries(contagem)
+      .map(([pid, qtd]) => ({ participante: (participantes || []).find((p) => p.id === pid), qtd }))
+      .filter((r) => r.participante)
+      .sort((a, b) => b.qtd - a.qtd);
+  };
+  const renderRankingPublico = (lista, cor) => lista.length === 0
+    ? '<div class="msg aviso">Nenhum registro ainda.</div>'
+    : lista.map((r, i) => `
+        <div class="rank-row-simples">
+          <span class="rank-pos">${i + 1}</span>
+          <span class="rank-avatar">${iniciaisPublico(r.participante.nome)}</span>
+          <span class="rank-nome">${r.participante.nome}</span>
+          <span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span>
+          <span class="rank-qtd" style="color:${cor};">${r.qtd}</span>
+        </div>`).join('');
+
+  const artilheiros = contarPorTipoPublico('gol');
+  const amarelosPub = contarPorTipoPublico('cartao_amarelo').map((r) => ({ ...r, label: '🟨' }));
+  const vermelhosPub = contarPorTipoPublico('cartao_vermelho').map((r) => ({ ...r, label: '🟥' }));
+  const cartoesHtmlPub = [...amarelosPub, ...vermelhosPub].sort((a, b) => b.qtd - a.qtd)
+    .map((r) => `<div class="rank-row-simples"><span class="rank-nome">${r.label} ${r.participante.nome}</span><span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span><span class="rank-qtd">${r.qtd}</span></div>`).join('');
+
+  document.getElementById('pub-stats').innerHTML = `
+    <div class="two-col">
+      <div class="painel"><h3>Artilharia</h3>${renderRankingPublico(artilheiros, 'var(--amber)')}</div>
+      <div class="painel"><h3>Cartões</h3>${cartoesHtmlPub || '<div class="msg aviso">Nenhum cartão registrado ainda.</div>'}</div>
+    </div>
+  `;
+
+  // ---- aba Regras ----
+  document.getElementById('pub-regras').innerHTML = `<div class="rules-quick-grid">${construirHtmlRegras(torneio.regras_disciplina)}</div>`;
+
+  // ---- rodapé (fora das abas, sempre visível) ----
+  document.getElementById('publica-rodape').innerHTML = `
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--line);text-align:center;">
       <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:6px;">
         <div style="width:22px;height:22px;border-radius:5px;background:var(--pitch);display:flex;align-items:center;justify-content:center;">
@@ -1121,8 +1208,19 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
     </div>
   `;
 
-  document.getElementById(containerId).innerHTML = html;
+  // reseta sempre pra primeira aba quando (re)carrega
+  document.querySelectorAll('#publica-tabs .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#tela-publica-view .pane').forEach((p, i) => p.classList.toggle('active', i === 0));
 }
+
+document.querySelectorAll('#publica-tabs .tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#publica-tabs .tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('#tela-publica-view .pane').forEach((p) => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.pubpane).classList.add('active');
+  });
+});
 
 let editandoParticipanteId = null;
 const POSICOES_OPCOES = [
