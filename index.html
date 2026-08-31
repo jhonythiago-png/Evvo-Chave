@@ -470,11 +470,26 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
               <label>Pontos por derrota</label>
               <input type="number" id="cfg-pts-derrota" min="0">
             </div>
+            <div class="campo">
+              <label>Status do torneio</label>
+              <select id="cfg-status">
+                <option value="rascunho">Rascunho</option>
+                <option value="sorteio">Sorteio</option>
+                <option value="em_andamento">Em andamento</option>
+                <option value="encerrado">Encerrado</option>
+              </select>
+            </div>
           </div>
 
           <button class="btn full" onclick="salvarConfigTorneio()">Salvar configurações</button>
           <div id="config-msg"></div>
           <div class="msg aviso" style="margin-top:12px;">Se já gerou o calendário antes de mudar algo aqui, vá em <strong>Jogos → Gerar calendário</strong> de novo pra aplicar.</div>
+        </div>
+
+        <div class="painel" style="margin-top:16px;border-color:var(--amber-dim);">
+          <h3 style="color:var(--red);">Zona de risco</h3>
+          <div class="msg aviso" style="margin-bottom:12px;">Excluir o torneio apaga <strong>tudo</strong>: participantes, times, grupos, jogos e estatísticas. Não tem como desfazer.</div>
+          <button class="btn full" style="background:var(--red);" onclick="excluirTorneio()">Excluir este torneio</button>
         </div>
 
         <div class="painel" style="margin-top:16px;">
@@ -717,13 +732,47 @@ async function calcularHtmlColocacaoFinal(torneioId) {
   });
   resto.sort((a, b) => b.pts - a.pts || b.sg - a.sg || b.gp - a.gp);
 
+  // explica o desempate entre os eliminados, igual já faço na classificação de
+  // grupos — mesma lógica (pontos -> saldo -> gols pró), só que comparando
+  // times de grupos diferentes, então sem confronto direto nem sorteio aqui
+  function agruparPorChaveIgual(lista, chave) {
+    const grupos2 = [];
+    let atual = [lista[0]];
+    for (let k = 1; k < lista.length; k++) {
+      if (lista[k][chave] === atual[0][chave]) atual.push(lista[k]);
+      else { grupos2.push(atual); atual = [lista[k]]; }
+    }
+    grupos2.push(atual);
+    return grupos2;
+  }
+  const avisosResto = [];
+  agruparPorChaveIgual(resto, 'pts').forEach((grupoPts) => {
+    if (grupoPts.length < 2) return;
+    const nomes = grupoPts.map((t) => t.nome);
+    const gruposSaldo = agruparPorChaveIgual(grupoPts, 'sg');
+    if (gruposSaldo.length > 1) {
+      avisosResto.push(`${nomes.join(' e ')} empataram em pontos (${grupoPts[0].pts}) entre os eliminados — desempate pelo saldo de gols.`);
+    }
+    gruposSaldo.forEach((grupoSg) => {
+      if (grupoSg.length < 2) return;
+      const gruposGp = agruparPorChaveIgual(grupoSg, 'gp');
+      if (gruposGp.length > 1) {
+        avisosResto.push(`${grupoSg.map((t) => t.nome).join(' e ')} empataram em pontos e saldo entre os eliminados — desempate pelos gols pró.`);
+      }
+    });
+  });
+
   let html = '';
   top.forEach((t) => {
     html += `<div class="rank-row-simples"><span class="rank-pos">${t.icone}</span><span class="rank-nome">${nomeComBandeiraLocal(t.id)}</span></div>`;
   });
+  if (resto.length > 0) {
+    html += '<div class="divider" style="margin:12px 0;"></div><div style="font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Eliminados na fase de grupos</div>';
+  }
   resto.forEach((t, i) => {
     html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${t.nome}</span><span class="rank-time">${t.pts} pts</span></div>`;
   });
+  avisosResto.forEach((msg) => { html += `<div class="msg aviso" style="margin-top:10px;">${msg}</div>`; });
   return html;
 }
 
@@ -963,6 +1012,7 @@ async function carregarInfoTorneio() {
   document.getElementById('cfg-pts-vitoria').value = t.pontos_vitoria ?? 3;
   document.getElementById('cfg-pts-empate').value = t.pontos_empate ?? 1;
   document.getElementById('cfg-pts-derrota').value = t.pontos_derrota ?? 0;
+  document.getElementById('cfg-status').value = t.status || 'rascunho';
 
   await carregarConfigPublico(t);
   await carregarStatGridVisaoGeral();
@@ -1046,12 +1096,30 @@ async function salvarConfigTorneio() {
     pontos_vitoria: parseInt(document.getElementById('cfg-pts-vitoria').value, 10) || 0,
     pontos_empate: parseInt(document.getElementById('cfg-pts-empate').value, 10) || 0,
     pontos_derrota: parseInt(document.getElementById('cfg-pts-derrota').value, 10) || 0,
+    status: document.getElementById('cfg-status').value,
   };
 
   const { error } = await supabaseClient.from('torneios').update(atualizacao).eq('id', torneioAtualId);
   if (error) { mostrarMsg('config-msg', error.message, 'erro'); return; }
 
   mostrarMsg('config-msg', 'Configurações salvas. Se já tinha calendário gerado, refaça em Jogos → Gerar calendário.', 'ok');
+  await carregarListaTorneios();
+}
+
+async function excluirTorneio() {
+  const { data: t } = await supabaseClient.from('torneios').select('nome').eq('id', torneioAtualId).single();
+  const nomeConfirmacao = prompt(`Isso vai apagar "${t?.nome}" e TUDO dentro dele (participantes, times, grupos, jogos, estatísticas), sem volta.\n\nPra confirmar, digite o nome do torneio exatamente como está:`);
+  if (nomeConfirmacao !== t?.nome) {
+    if (nomeConfirmacao !== null) alert('Nome não confere. Nada foi apagado.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('torneios').delete().eq('id', torneioAtualId);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+
+  torneioAtualId = null;
+  await carregarListaTorneios();
+  mostrarEstadoPrincipal('vazio');
 }
 
 function slugSugerido(nome) {
