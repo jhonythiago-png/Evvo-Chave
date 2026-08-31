@@ -1477,6 +1477,42 @@ async function obterClassificacaoPorGrupo() {
 }
 
 // ---------------- MATA-MATA ----------------
+// Acha onde o cronograma "está" agora (último jogo com horário marcado já
+// terminado + intervalo de troca), pra continuar o mata-mata dali em vez de
+// voltar pro horário de início do torneio.
+async function calcularHorarioContinuacao(torneio) {
+  const { data: jogosComHorario } = await supabaseClient
+    .from('jogos').select('horario_previsto, fase').eq('torneio_id', torneioAtualId).not('horario_previsto', 'is', null);
+
+  if (!jogosComHorario || jogosComHorario.length === 0) return torneio.horario_inicio?.slice(0, 5) || '08:00';
+
+  let maiorFim = 0;
+  jogosComHorario.forEach((j) => {
+    const duracao = j.fase === 'final' ? torneio.duracao_final_min : torneio.duracao_partida_min;
+    const inicioMin = window.Chave.hhmmParaMinutos(j.horario_previsto.slice(0, 5));
+    maiorFim = Math.max(maiorFim, inicioMin + duracao);
+  });
+  return window.Chave.minutosParaHhmm(maiorFim + (torneio.intervalo_troca_min || 0));
+}
+
+async function agendarConfrontosMataMata(confrontos) {
+  const { data: torneio } = await supabaseClient.from('torneios').select('*').eq('id', torneioAtualId).single();
+  const horarioInicio = await calcularHorarioContinuacao(torneio);
+
+  const { jogosAgendados } = window.Chave.agendarJogos([confrontos], {
+    camposDisponiveis: torneio.campos_disponiveis,
+    horarioInicio,
+    intervaloInicio: torneio.intervalo_inicio?.slice(0, 5) || null,
+    intervaloFim: torneio.intervalo_fim?.slice(0, 5) || null,
+    retornoAposIntervalo: torneio.retorno_jogos?.slice(0, 5) || null,
+    duracaoPartidaMin: torneio.duracao_partida_min,
+    duracaoFinalMin: torneio.duracao_final_min,
+    intervaloTrocaMin: torneio.intervalo_troca_min,
+    ehFinal: (j) => j.fase === 'final',
+  });
+  return jogosAgendados;
+}
+
 async function gerarMataMata() {
   const avancamPorGrupo = parseInt(document.getElementById('matamata-avancam').value, 10);
   const gruposClassificacao = await obterClassificacaoPorGrupo();
@@ -1515,8 +1551,13 @@ async function gerarMataMata() {
     ];
   }
 
-  for (const c of confrontos) {
-    const { error } = await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id });
+  const confrontosAgendados = await agendarConfrontosMataMata(confrontos);
+
+  for (const c of confrontosAgendados) {
+    const { error } = await supabaseClient.from('jogos').insert({
+      torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id,
+      campo_numero: c.campo_numero, horario_previsto: c.horario_previsto,
+    });
     if (error) { mostrarMsg('matamata-msg', error.message, 'erro'); return; }
   }
 
@@ -1541,6 +1582,7 @@ function perdedor(jogo) {
 }
 
 async function carregarMataMata() {
+  const { data: torneio } = await supabaseClient.from('torneios').select('duracao_partida_min, duracao_final_min').eq('id', torneioAtualId).single();
   const { data: jogosCrus } = await supabaseClient
     .from('jogos')
     .select('*, time_a:time_a_id(nome), time_b:time_b_id(nome)')
@@ -1563,10 +1605,17 @@ async function carregarMataMata() {
   (jogos || []).forEach((j) => {
     const empatado = j.status === 'encerrado' && j.gols_a === j.gols_b && (j.penaltis_a == null || j.penaltis_b == null);
     const jogadoresDoJogo = participantes.filter((p) => p.time_id === j.time_a_id || p.time_id === j.time_b_id);
+    let horarioTexto = '';
+    if (j.horario_previsto) {
+      const duracao = j.fase === 'final' ? (torneio?.duracao_final_min || 30) : (torneio?.duracao_partida_min || 20);
+      const inicio = j.horario_previsto.slice(0, 5);
+      const inicioMin = window.Chave.hhmmParaMinutos(inicio);
+      horarioTexto = ` · ${inicio} - ${window.Chave.minutosParaHhmm(inicioMin + duracao)}`;
+    }
     const div = document.createElement('div');
     div.className = 'jogo-card';
     div.innerHTML = `
-      <div class="meta">${rotulo[j.fase] || j.fase}</div>
+      <div class="meta">${rotulo[j.fase] || j.fase}${horarioTexto}</div>
       <div class="confronto">
         <span class="time-nome">${bandeiraImg(j.time_a?.nome)}${j.time_a?.nome}</span>
         <span class="placar"><input type="number" min="0" id="gols-a-${j.id}" value="${j.gols_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="gols-b-${j.id}" value="${j.gols_b ?? ''}" placeholder="0"></span>
@@ -1633,8 +1682,17 @@ async function avancarMataMataSeNecessario() {
   const vencedores = semis.map(ganhador);
   const perdedores = semis.map(perdedor);
 
-  await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] });
-  await supabaseClient.from('jogos').insert({ torneio_id: torneioAtualId, fase: 'terceiro_lugar', time_a_id: perdedores[0], time_b_id: perdedores[1] });
+  const confrontosAgendados = await agendarConfrontosMataMata([
+    { fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] },
+    { fase: 'terceiro_lugar', time_a_id: perdedores[0], time_b_id: perdedores[1] },
+  ]);
+
+  for (const c of confrontosAgendados) {
+    await supabaseClient.from('jogos').insert({
+      torneio_id: torneioAtualId, fase: c.fase, time_a_id: c.time_a_id, time_b_id: c.time_b_id,
+      campo_numero: c.campo_numero, horario_previsto: c.horario_previsto,
+    });
+  }
 }
 
 // ---------------- ESTATÍSTICAS (artilharia e cartões) ----------------
