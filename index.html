@@ -1035,7 +1035,11 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
   const { data: jogosMataCrus } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
-  const jogosMata = (jogosMataCrus || []).sort((a, b) => ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase]);
+  const jogosMata = (jogosMataCrus || []).sort((a, b) => {
+    const diferencaFase = ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
+    if (diferencaFase !== 0) return diferencaFase;
+    return (a.horario_previsto || '').localeCompare(b.horario_previsto || ''); // dentro da mesma fase, por horário
+  });
 
   const timeInfo = (id) => (times || []).find((t) => t.id === id);
   const nomeComBandeira = (id) => {
@@ -1110,7 +1114,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
         </div>
         <span style="font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;color:var(--chalk);">Chave</span>
       </div>
-      <div style="font-size:12px;color:var(--muted);">Sistema de gestão de torneios desenvolvido por <strong style="color:var(--amber);">Jhony Beraldo</strong></div>
+      <div style="font-size:12px;color:var(--muted);">Sistema de gestão de torneios desenvolvido por <strong style="color:var(--amber);white-space:nowrap;">Jhony Beraldo</strong></div>
     </div>
   `;
 
@@ -1868,7 +1872,11 @@ async function carregarMataMata() {
   // ordem de leitura fixa: semifinais primeiro, depois final, depois 3º lugar
   // (sem isso, a lista vinha em ordem arbitrária do banco e confundia)
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
-  const jogos = (jogosCrus || []).sort((a, b) => ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase]);
+  const jogos = (jogosCrus || []).sort((a, b) => {
+    const diferencaFase = ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
+    if (diferencaFase !== 0) return diferencaFase;
+    return (a.horario_previsto || '').localeCompare(b.horario_previsto || ''); // dentro da mesma fase, por horário
+  });
 
   const { participantes, eventos } = await buscarParticipantesEEventos();
 
