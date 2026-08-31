@@ -592,15 +592,9 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-publico">
-        <div class="torneio-grid">
-          <div class="painel">
-            <h3>Link compartilhável</h3>
-            <div id="publico-config"></div>
-          </div>
-          <div class="painel" id="publico-preview-wrap">
-            <h3>Prévia (o que os jogadores veem)</h3>
-            <div id="publico-preview"></div>
-          </div>
+        <div class="painel" style="max-width:480px;">
+          <h3>Link compartilhável</h3>
+          <div id="publico-config"></div>
         </div>
       </div>
     </div>
@@ -1017,8 +1011,6 @@ async function carregarConfigPublico(torneio) {
       <button class="btn secondary full" onclick="window.open('${link}', '_blank')">Abrir em nova aba</button>
       <button class="btn full" style="background:${torneio.pagina_publica ? 'var(--red)' : 'var(--pitch)'};" onclick="alternarPaginaPublica(${!torneio.pagina_publica})">${torneio.pagina_publica ? 'Desativar página pública' : 'Ativar página pública'}</button>
     `;
-    document.getElementById('publico-preview-wrap').classList.remove('hidden');
-    await montarConteudoPublico(torneio, 'publico-preview');
   } else {
     div.innerHTML = `
       <div class="msg aviso">Ainda não tem um link definido para esse torneio.</div>
@@ -1027,7 +1019,6 @@ async function carregarConfigPublico(torneio) {
       <button class="btn full" onclick="definirSlugPublico()">Gerar link</button>
       <div id="publico-slug-msg"></div>
     `;
-    document.getElementById('publico-preview-wrap').classList.add('hidden');
   }
 }
 
@@ -1055,7 +1046,7 @@ function copiarLinkPublico(link) {
 
 // ---------------- PÁGINA PÚBLICA (sem login, via ?t=slug) ----------------
 async function renderizarPaginaPublica(slug) {
-  document.getElementById('publica-conteudo').innerHTML = '<div class="em-construcao">Carregando...</div>';
+  document.getElementById('publica-cabecalho').innerHTML = '<div class="em-construcao">Carregando...</div>';
 
   try {
     const { data: torneios, error } = await supabaseClient.from('torneios').select('*').eq('slug', slug);
@@ -1063,18 +1054,18 @@ async function renderizarPaginaPublica(slug) {
     const torneio = torneios && torneios[0];
 
     if (!torneio) {
-      document.getElementById('publica-conteudo').innerHTML = '<h2 style="margin-top:20px;">Torneio não encontrado</h2><p style="color:var(--muted);font-size:13px;margin-top:8px;">Verifique se o link está certo.</p>';
+      document.getElementById('publica-cabecalho').innerHTML = '<h2 style="margin-top:20px;">Torneio não encontrado</h2><p style="color:var(--muted);font-size:13px;margin-top:8px;">Verifique se o link está certo.</p>';
       return;
     }
 
     await montarConteudoPublico(torneio);
   } catch (e) {
     console.error('Erro na página pública:', e);
-    document.getElementById('publica-conteudo').innerHTML = `<h2 style="margin-top:20px;">Erro ao carregar</h2><p style="color:var(--red);font-size:13px;margin-top:8px;">${e.message || e}</p>`;
+    document.getElementById('publica-cabecalho').innerHTML = `<h2 style="margin-top:20px;">Erro ao carregar</h2><p style="color:var(--red);font-size:13px;margin-top:8px;">${e.message || e}</p>`;
   }
 }
 
-async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') {
+async function montarConteudoPublico(torneio) {
   const { data: gruposCrus } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneio.id).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneio.id);
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
