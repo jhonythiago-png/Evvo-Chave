@@ -1458,8 +1458,9 @@ async function avaliarDisciplina(participanteId, jogoAtualId) {
   const { data: participanteAtual } = await supabaseClient.from('participantes').select('status, time_id').eq('id', participanteId).single();
   if (!participanteAtual || participanteAtual.status === 'eliminado') return; // eliminado é definitivo
 
-  const { data: eventosDoJogador } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo').eq('participante_id', participanteId);
-  const jogoIds = [...new Set((eventosDoJogador || []).map((e) => e.jogo_id))];
+  const { data: eventosDoJogadorTodos } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo, contabilizado_em_suspensao').eq('participante_id', participanteId);
+  const eventosDoJogador = (eventosDoJogadorTodos || []).filter((e) => !e.contabilizado_em_suspensao); // cartões já cumpridos não punem de novo
+  const jogoIds = [...new Set(eventosDoJogador.map((e) => e.jogo_id))];
   const { data: jogosRelacionados } = jogoIds.length
     ? await supabaseClient.from('jogos').select('id, fase').in('id', jogoIds)
     : { data: [] };
@@ -1468,9 +1469,9 @@ async function avaliarDisciplina(participanteId, jogoAtualId) {
   // se já tem evento no mata-mata, o que vale é só a contagem do mata-mata
   // (os amarelos da fase de grupos já "zeraram") — mas isso NUNCA reverte uma
   // suspensão/eliminação que já tenha sido decidida antes (guard acima).
-  const temEventoMataMata = (eventosDoJogador || []).some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
+  const temEventoMataMata = eventosDoJogador.some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
   const grupoRelevante = temEventoMataMata ? 'mata_mata' : 'grupos';
-  const eventosRelevantes = (eventosDoJogador || []).filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
+  const eventosRelevantes = eventosDoJogador.filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
 
   const amarelos = eventosRelevantes.filter((e) => e.tipo === 'cartao_amarelo').length;
   const vermelhos = eventosRelevantes.filter((e) => e.tipo === 'cartao_vermelho').length;
@@ -1503,17 +1504,39 @@ async function encontrarProximoJogoDoTime(timeId, jogoAtualId) {
   return proximo ? proximo.id : null;
 }
 
+// Marca como "já cumpridos" os cartões amarelos/vermelhos que causaram a
+// suspensão — sem isso, uma recontagem futura acharia os MESMOS cartões de
+// novo e puniria a pessoa duas vezes pela mesma coisa.
+async function marcarCartoesComoCumpridos(participanteId) {
+  const { data: eventosDoJogadorTodos } = await supabaseClient.from('eventos_partida').select('id, jogo_id, tipo, contabilizado_em_suspensao').eq('participante_id', participanteId);
+  const pendentes = (eventosDoJogadorTodos || []).filter((e) => !e.contabilizado_em_suspensao && (e.tipo === 'cartao_amarelo' || e.tipo === 'cartao_vermelho'));
+  if (pendentes.length === 0) return;
+
+  const jogoIds = [...new Set(pendentes.map((e) => e.jogo_id))];
+  const { data: jogosRelacionados } = await supabaseClient.from('jogos').select('id, fase').in('id', jogoIds);
+  const faseDoJogo = (id) => (jogosRelacionados || []).find((j) => j.id === id)?.fase;
+  const temEventoMataMata = pendentes.some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
+  const grupoRelevante = temEventoMataMata ? 'mata_mata' : 'grupos';
+  const idsParaMarcar = pendentes.filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante).map((e) => e.id);
+
+  if (idsParaMarcar.length > 0) {
+    await supabaseClient.from('eventos_partida').update({ contabilizado_em_suspensao: true }).in('id', idsParaMarcar);
+  }
+}
+
 // Quando o placar de um jogo é lançado, libera automaticamente quem estava
 // suspenso justamente até esse jogo — é assim que a suspensão "sabe" quando
 // foi cumprida, sem precisar de escalação jogador a jogador.
 async function liberarSuspensosPorJogo(jogoId) {
   const { data: suspensosNesseJogo } = await supabaseClient.from('participantes').select('id').eq('suspenso_ate_jogo_id', jogoId);
   for (const p of suspensosNesseJogo || []) {
+    await marcarCartoesComoCumpridos(p.id);
     await supabaseClient.from('participantes').update({ status: 'ativo', suspenso_ate_jogo_id: null }).eq('id', p.id);
   }
 }
 
 async function liberarJogador(participanteId) {
+  await marcarCartoesComoCumpridos(participanteId);
   await supabaseClient.from('participantes').update({ status: 'ativo', suspenso_ate_jogo_id: null }).eq('id', participanteId);
   await carregarParticipantes();
   await carregarEstatisticas();
@@ -1540,16 +1563,17 @@ async function registrarEvento(jogoId) {
 // pode REBAIXAR — usada quando um cartão é removido/corrigido, já que nesse
 // caso "nunca aconteceu de verdade", diferente de uma suspensão sendo servida).
 async function recalcularDisciplinaCompleta(participanteId) {
-  const { data: eventosDoJogador } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo').eq('participante_id', participanteId);
-  const jogoIds = [...new Set((eventosDoJogador || []).map((e) => e.jogo_id))];
+  const { data: eventosDoJogadorTodos } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo, contabilizado_em_suspensao').eq('participante_id', participanteId);
+  const eventosDoJogador = (eventosDoJogadorTodos || []).filter((e) => !e.contabilizado_em_suspensao); // cartões já cumpridos não contam de novo
+  const jogoIds = [...new Set(eventosDoJogador.map((e) => e.jogo_id))];
   const { data: jogosRelacionados } = jogoIds.length
     ? await supabaseClient.from('jogos').select('id, fase').in('id', jogoIds)
     : { data: [] };
   const faseDoJogo = (id) => (jogosRelacionados || []).find((j) => j.id === id)?.fase;
 
-  const temEventoMataMata = (eventosDoJogador || []).some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
+  const temEventoMataMata = eventosDoJogador.some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
   const grupoRelevante = temEventoMataMata ? 'mata_mata' : 'grupos';
-  const eventosRelevantes = (eventosDoJogador || []).filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
+  const eventosRelevantes = eventosDoJogador.filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
 
   const amarelos = eventosRelevantes.filter((e) => e.tipo === 'cartao_amarelo').length;
   const vermelhos = eventosRelevantes.filter((e) => e.tipo === 'cartao_vermelho').length;
@@ -1561,6 +1585,7 @@ async function recalcularDisciplinaCompleta(participanteId) {
   const atualizacao = { status: novoStatus };
   if (novoStatus !== 'suspenso') atualizacao.suspenso_ate_jogo_id = null;
   await supabaseClient.from('participantes').update(atualizacao).eq('id', participanteId);
+  return novoStatus;
 }
 
 async function removerEvento(eventoId) {
