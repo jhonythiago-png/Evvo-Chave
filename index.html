@@ -364,9 +364,9 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane active" id="tab-visao">
-        <div class="stat-grid" id="visao-stat-grid" style="max-width:960px;"></div>
+        <div class="stat-grid" id="visao-stat-grid" style="max-width:700px;"></div>
 
-        <div class="painel" style="max-width:960px;">
+        <div class="painel">
           <h3>Configurações do torneio</h3>
 
           <div class="config-grid">
@@ -431,17 +431,17 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
           <div class="msg aviso" style="margin-top:12px;">Se já gerou o calendário antes de mudar algo aqui, vá em <strong>Jogos → Gerar calendário</strong> de novo pra aplicar.</div>
         </div>
 
-        <div class="painel" style="max-width:960px;margin-top:16px;">
-          <h3>Regras & disciplina — resumo rápido</h3>
-          <div class="rules-quick-grid">
-            <div class="rule-chip"><span class="ic">🧢</span><span>Só o <strong>capitão</strong> fala com o árbitro durante o jogo</span></div>
-            <div class="rule-chip"><span class="ic">🚫</span><span>Menos de <strong>5 atletas de linha</strong> no início → perde por <strong>WO</strong></span></div>
-            <div class="rule-chip"><span class="ic">🔄</span><span>Todo <strong>reserva</strong> precisa jogar ao menos <strong>1 tempo</strong></span></div>
-            <div class="rule-chip"><span class="ic">🟨🟨</span><span><strong>2 amarelos</strong> → suspensão automática de 1 jogo</span></div>
-            <div class="rule-chip"><span class="ic">🟥</span><span>Vermelho após o <strong>2º amarelo</strong> → suspensão de 1 jogo</span></div>
-            <div class="rule-chip"><span class="ic">🚷</span><span>Vermelho <strong>direto</strong> (agressão/indisciplina) → <strong>eliminado do torneio</strong></span></div>
-            <div class="rule-chip"><span class="ic">♻️</span><span>Cartões amarelos <strong>zeram</strong> ao fim da fase de grupos</span></div>
-            <div class="rule-chip"><span class="ic">⏳</span><span>Zeramento não perdoa <strong>suspensão já decidida</strong> — se pendente, é cumprida no 1º jogo seguinte do time</span></div>
+        <div class="painel" style="margin-top:16px;">
+          <div class="top-row" style="margin-bottom:14px;">
+            <h3 style="margin:0;">Regras & disciplina — resumo rápido</h3>
+            <span class="sair" onclick="alternarEdicaoRegras()" id="btn-editar-regras">Editar</span>
+          </div>
+          <div id="regras-visualizacao" class="rules-quick-grid"></div>
+          <div id="regras-edicao" class="hidden">
+            <label>Uma regra por linha (o emoji do início vira o ícone do card)</label>
+            <textarea id="regras-textarea" rows="10" style="width:100%;background:var(--void);border:1px solid var(--line);border-radius:6px;padding:10px;color:var(--chalk);font-size:13px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+            <button class="btn full" onclick="salvarRegrasDisciplina()">Salvar regras</button>
+            <div id="regras-msg"></div>
           </div>
         </div>
       </div>
@@ -865,6 +865,45 @@ async function carregarInfoTorneio() {
 
   await carregarConfigPublico(t);
   await carregarStatGridVisaoGeral();
+  renderizarRegras(t.regras_disciplina, 'regras-visualizacao');
+  document.getElementById('regras-textarea').value = t.regras_disciplina || '';
+}
+
+// texto livre, uma regra por linha: "🧢 Só o capitão fala..." -> ícone = até
+// o primeiro espaço, resto = texto do card
+function construirHtmlRegras(textoRegras) {
+  const linhas = (textoRegras || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const html = linhas.map((linha) => {
+    const espacoIdx = linha.indexOf(' ');
+    const icone = espacoIdx > 0 ? linha.slice(0, espacoIdx) : '';
+    const texto = espacoIdx > 0 ? linha.slice(espacoIdx + 1) : linha;
+    return `<div class="rule-chip"><span class="ic">${icone}</span><span>${texto}</span></div>`;
+  }).join('');
+  return html || '<div class="msg aviso">Nenhuma regra cadastrada ainda.</div>';
+}
+
+function renderizarRegras(textoRegras, containerId) {
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = construirHtmlRegras(textoRegras);
+}
+
+function alternarEdicaoRegras() {
+  const visualizacao = document.getElementById('regras-visualizacao');
+  const edicao = document.getElementById('regras-edicao');
+  const abrindo = edicao.classList.contains('hidden');
+  visualizacao.classList.toggle('hidden', abrindo);
+  edicao.classList.toggle('hidden', !abrindo);
+  document.getElementById('btn-editar-regras').textContent = abrindo ? 'Cancelar' : 'Editar';
+}
+
+async function salvarRegrasDisciplina() {
+  const texto = document.getElementById('regras-textarea').value;
+  const { error } = await supabaseClient.from('torneios').update({ regras_disciplina: texto }).eq('id', torneioAtualId);
+  if (error) { mostrarMsg('regras-msg', error.message, 'erro'); return; }
+
+  renderizarRegras(texto, 'regras-visualizacao');
+  alternarEdicaoRegras();
+  mostrarMsg('regras-msg', 'Regras salvas.', 'ok');
 }
 
 async function carregarStatGridVisaoGeral() {
@@ -1062,16 +1101,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   html += `
     <div class="divider"></div>
     <h3>Regras & disciplina — resumo rápido</h3>
-    <div class="rules-quick-grid">
-      <div class="rule-chip"><span class="ic">🧢</span><span>Só o <strong>capitão</strong> fala com o árbitro durante o jogo</span></div>
-      <div class="rule-chip"><span class="ic">🚫</span><span>Menos de <strong>5 atletas de linha</strong> no início → perde por <strong>WO</strong></span></div>
-      <div class="rule-chip"><span class="ic">🔄</span><span>Todo <strong>reserva</strong> precisa jogar ao menos <strong>1 tempo</strong></span></div>
-      <div class="rule-chip"><span class="ic">🟨🟨</span><span><strong>2 amarelos</strong> → suspensão automática de 1 jogo</span></div>
-      <div class="rule-chip"><span class="ic">🟥</span><span>Vermelho após o <strong>2º amarelo</strong> → suspensão de 1 jogo</span></div>
-      <div class="rule-chip"><span class="ic">🚷</span><span>Vermelho <strong>direto</strong> (agressão/indisciplina) → <strong>eliminado do torneio</strong></span></div>
-      <div class="rule-chip"><span class="ic">♻️</span><span>Cartões amarelos <strong>zeram</strong> ao fim da fase de grupos</span></div>
-      <div class="rule-chip"><span class="ic">⏳</span><span>Zeramento não perdoa <strong>suspensão já decidida</strong> — se pendente, é cumprida no 1º jogo seguinte do time</span></div>
-    </div>
+    <div class="rules-quick-grid">${construirHtmlRegras(torneio.regras_disciplina)}</div>
   `;
 
   document.getElementById(containerId).innerHTML = html;
