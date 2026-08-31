@@ -680,6 +680,19 @@ function avisoSuspensosHtml(jogadoresDoJogo, jogoId) {
 
 // Bandeira como IMAGEM (não emoji) — emoji de bandeira não renderiza no Windows
 // (mostra só a sigla do país), imagem funciona igual em qualquer sistema.
+// Protege contra injeção de código: qualquer texto livre que o admin digita
+// (regras, e — em teoria — nomes) e que depois aparece na página pública
+// pra qualquer visitante anônimo PRECISA passar por aqui antes de virar HTML.
+function escaparHtml(texto) {
+  if (texto == null) return '';
+  return String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function bandeiraImg(nomeTime) {
   const codigo = window.Chave.BANDEIRA_POR_NOME[nomeTime];
   return codigo ? `<img src="https://flagcdn.com/24x18/${codigo}.png" alt="" style="width:18px;height:13px;border-radius:2px;vertical-align:middle;margin-right:4px;">` : '';
@@ -696,7 +709,7 @@ async function calcularHtmlColocacaoFinal(torneioId) {
 
   const grupos = (gruposCrus || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
   const timeInfo = (id) => (times || []).find((t) => t.id === id);
-  const nomeComBandeiraLocal = (id) => { const t = timeInfo(id); return t ? `${bandeiraImg(t.nome)}${t.nome}` : '—'; };
+  const nomeComBandeiraLocal = (id) => { const t = timeInfo(id); return t ? `${bandeiraImg(t.nome)}${escaparHtml(t.nome)}` : '—'; };
 
   function ganhadorPerdedorMataMata(j) {
     let vencedorId = null;
@@ -770,7 +783,7 @@ async function calcularHtmlColocacaoFinal(torneioId) {
     html += '<div class="divider" style="margin:12px 0;"></div><div style="font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Eliminados na fase de grupos</div>';
   }
   resto.forEach((t, i) => {
-    html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${t.nome}</span><span class="rank-time">${t.pts} pts</span></div>`;
+    html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span class="rank-time">${t.pts} pts</span></div>`;
   });
   avisosResto.forEach((msg) => { html += `<div class="msg aviso" style="margin-top:10px;">${msg}</div>`; });
   return html;
@@ -1028,7 +1041,7 @@ function construirHtmlRegras(textoRegras) {
     const espacoIdx = linha.indexOf(' ');
     const icone = espacoIdx > 0 ? linha.slice(0, espacoIdx) : '';
     const texto = espacoIdx > 0 ? linha.slice(espacoIdx + 1) : linha;
-    return `<div class="rule-chip"><span class="ic">${icone}</span><span>${texto}</span></div>`;
+    return `<div class="rule-chip"><span class="ic">${escaparHtml(icone)}</span><span>${escaparHtml(texto)}</span></div>`;
   }).join('');
   return html || '<div class="msg aviso">Nenhuma regra cadastrada ainda.</div>';
 }
@@ -1214,7 +1227,7 @@ async function montarConteudoPublico(torneio) {
   const nomeComBandeira = (id) => {
     const t = timeInfo(id);
     if (!t) return '—';
-    return `${bandeiraImg(t.nome)}${t.nome}`;
+    return `${bandeiraImg(t.nome)}${escaparHtml(t.nome)}`;
   };
   const corTime = (id) => timeInfo(id)?.cor || '#7E9488';
   const duracaoPartida = torneio.duracao_partida_min || 20;
@@ -1229,7 +1242,7 @@ async function montarConteudoPublico(torneio) {
   // ---- cabeçalho (fora das abas, sempre visível) ----
   document.getElementById('publica-cabecalho').innerHTML = `
     <div class="tt-badge" style="margin-top:20px;"><span class="dot" style="background:${torneio.status === 'encerrado' ? 'var(--amber)' : 'var(--pitch)'};"></span> ${torneio.esporte} · ${torneio.status}</div>
-    <div class="tt-title">${torneio.nome}</div>
+    <div class="tt-title">${escaparHtml(torneio.nome)}</div>
     <div class="tt-sub">Data: ${torneio.data_evento}</div>
   `;
 
@@ -1252,7 +1265,7 @@ async function montarConteudoPublico(torneio) {
     htmlGrupos += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
     classificacao.forEach((t) => {
-      htmlGrupos += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
+      htmlGrupos += `<tr><td>${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
     });
     htmlGrupos += '</table>';
     (avisos || []).forEach((a) => { htmlGrupos += `<div class="msg aviso" style="margin-top:10px;">${a.mensagem}</div>`; });
@@ -1306,7 +1319,7 @@ async function montarConteudoPublico(torneio) {
         <div class="rank-row-simples">
           <span class="rank-pos">${i + 1}</span>
           <span class="rank-avatar">${iniciaisPublico(r.participante.nome)}</span>
-          <span class="rank-nome">${r.participante.nome}</span>
+          <span class="rank-nome">${escaparHtml(r.participante.nome)}</span>
           <span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span>
           <span class="rank-qtd" style="color:${cor};">${r.qtd}</span>
         </div>`).join('');
@@ -1315,7 +1328,7 @@ async function montarConteudoPublico(torneio) {
   const amarelosPub = contarPorTipoPublico('cartao_amarelo').map((r) => ({ ...r, label: '🟨' }));
   const vermelhosPub = contarPorTipoPublico('cartao_vermelho').map((r) => ({ ...r, label: '🟥' }));
   const cartoesHtmlPub = [...amarelosPub, ...vermelhosPub].sort((a, b) => b.qtd - a.qtd)
-    .map((r) => `<div class="rank-row-simples"><span class="rank-nome">${r.label} ${r.participante.nome}</span><span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span><span class="rank-qtd">${r.qtd}</span></div>`).join('');
+    .map((r) => `<div class="rank-row-simples"><span class="rank-nome">${r.label} ${escaparHtml(r.participante.nome)}</span><span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span><span class="rank-qtd">${r.qtd}</span></div>`).join('');
 
   document.getElementById('pub-stats').innerHTML = `
     <div class="teams-grid">
@@ -1383,7 +1396,7 @@ async function carregarParticipantes() {
       const opcoesPosicao = POSICOES_OPCOES.map(([v, label]) => `<option value="${v}" ${p.posicao === v ? 'selected' : ''}>${label}</option>`).join('');
       html += `
         <div class="participante-linha participante-editando">
-          <input type="text" id="edit-nome-${p.id}" value="${p.nome}" placeholder="Nome" style="flex:1 1 140px;">
+          <input type="text" id="edit-nome-${p.id}" value="${escaparHtml(p.nome)}" placeholder="Nome" style="flex:1 1 140px;">
           <input type="number" id="edit-idade-${p.id}" value="${p.idade ?? ''}" placeholder="Idade" style="width:70px;flex:0 0 70px;">
           <input type="number" id="edit-nivel-${p.id}" value="${p.nivel_tecnico ?? ''}" min="1" max="5" placeholder="Nível" style="width:70px;flex:0 0 70px;">
           ${usaPosicao ? `<select id="edit-posicao-${p.id}" style="flex:1 1 140px;">${opcoesPosicao}</select>` : ''}
@@ -1406,7 +1419,7 @@ async function carregarParticipantes() {
 
     html += `
       <div class="participante-linha">
-        <span class="participante-nome">${p.nome}</span>
+        <span class="participante-nome">${escaparHtml(p.nome)}</span>
         <span class="participante-detalhe">${p.idade ?? '—'} anos · nível ${p.nivel_tecnico ?? '—'} · ${p.posicao ?? '—'}</span>
         <span class="participante-badges">${timeCell}${disciplinaCell}
           <span class="editar-participante" onclick="iniciarEdicaoParticipante('${p.id}')" title="Editar">✎</span>
@@ -1482,7 +1495,7 @@ async function carregarTimesFormados() {
     const somaNivel = jogadoresDoTime.reduce((s, j) => s + (j.nivel_tecnico || 0), 0);
     const nivelMedio = jogadoresDoTime.length ? (somaNivel / jogadoresDoTime.length).toFixed(1) : '—';
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${t.nome}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
     jogadoresDoTime.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
@@ -1553,7 +1566,7 @@ async function rodarSorteio() {
   resultado.times.forEach((t) => {
     const jogadoresOrdenados = [...t.jogadores].sort((a, b) => ORDEM_POSICOES_EXIBICAO.indexOf(a.posicao) - ORDEM_POSICOES_EXIBICAO.indexOf(b.posicao));
     const cor = t.cor || '#7E9488';
-    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${t.nome}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
+    html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
     jogadoresOrdenados.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
@@ -1695,7 +1708,7 @@ async function gerarCalendarioInterno() {
 function montarEventosHtml(jogoId, timeAId, nomeA, timeBId, nomeB, jogadoresDoJogo, eventosDoJogo) {
   const jogadoresA = jogadoresDoJogo.filter((p) => p.time_id === timeAId);
   const jogadoresB = jogadoresDoJogo.filter((p) => p.time_id === timeBId);
-  const opcoesGrupo = (nome, lista) => `<optgroup label="${nome}">${lista.map((p) => `<option value="${p.id}">${p.nome}</option>`).join('')}</optgroup>`;
+  const opcoesGrupo = (nome, lista) => `<optgroup label="${escaparHtml(nome)}">${lista.map((p) => `<option value="${p.id}">${escaparHtml(p.nome)}</option>`).join('')}</optgroup>`;
   const opcoesJogadores = opcoesGrupo(nomeA, jogadoresA) + opcoesGrupo(nomeB, jogadoresB);
   const eventosDesseJogo = eventosDoJogo.filter((e) => e.jogo_id === jogoId);
   const rotuloTipo = { gol: '⚽ Gol', cartao_amarelo: '🟨 Amarelo', cartao_vermelho: '🟥 Vermelho' };
@@ -1959,7 +1972,7 @@ async function atualizarClassificacao() {
     });
     html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
-    classificacao.forEach((t) => { html += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
+    classificacao.forEach((t) => { html += `<tr><td>${bandeiraImg(t.nome)}${escaparHtml(t.nome)}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`; });
     html += '</table>';
     avisos.forEach((a) => { html += `<div class="msg aviso" style="margin-top:8px;">${a.mensagem}</div>`; });
     html += '</div>';
@@ -2260,7 +2273,7 @@ async function carregarEstatisticas() {
       <div class="rank-row-simples">
         <span class="rank-pos">${i + 1}</span>
         <span class="rank-avatar">${iniciais(r.participante.nome)}</span>
-        <span class="rank-nome">${r.participante.nome}</span>
+        <span class="rank-nome">${escaparHtml(r.participante.nome)}</span>
         <span class="rank-time">${nomeTime(r.participante.time_id)}</span>
         <span class="rank-qtd" style="color:${corValor};">${r.qtd}</span>
       </div>
@@ -2275,7 +2288,7 @@ async function carregarEstatisticas() {
     .sort((a, b) => b.qtd - a.qtd)
     .map((r) => `
       <div class="rank-row-simples">
-        <span class="rank-nome">${r.label} ${r.participante.nome}</span>
+        <span class="rank-nome">${r.label} ${escaparHtml(r.participante.nome)}</span>
         <span class="rank-time">${nomeTime(r.participante.time_id)}</span>
         <span class="rank-qtd">${r.qtd}</span>
       </div>
@@ -2296,7 +2309,7 @@ async function carregarEstatisticas() {
     discHtml += `
       <div class="disc-row">
         <span class="rank-avatar">${iniciais(p.nome)}</span>
-        <div class="rank-info"><div class="rank-nome">${p.nome}</div><div class="rank-time">${nomeTime(p.time_id)}</div></div>
+        <div class="rank-info"><div class="rank-nome">${escaparHtml(p.nome)}</div><div class="rank-time">${nomeTime(p.time_id)}</div></div>
         <span class="disc-cards">${cardsTexto}</span>
         ${tag}
       </div>`;
