@@ -1000,7 +1000,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
 
 async function carregarParticipantes() {
   const { data: participantes } = await supabaseClient
-    .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('criado_em', { ascending: true });
+    .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
   const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome;
 
