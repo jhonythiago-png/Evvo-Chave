@@ -139,6 +139,14 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .evento-linha{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:4px 0;}
 .remover-evento{cursor:pointer;color:var(--red);padding:0 4px;}
 .remover-evento:hover{color:#ff8a80;}
+.editar-participante{cursor:pointer;color:var(--muted);padding:0 4px;}
+.editar-participante:hover{color:var(--chalk);}
+.participante-editando{gap:8px !important;}
+.participante-editando input, .participante-editando select{padding:6px 8px;font-size:12px;}
+.rules-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+.rule-chip{display:flex;align-items:flex-start;gap:9px;background:var(--void);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--muted);line-height:1.4;}
+.rule-chip .ic{font-size:16px;flex-shrink:0;}
+.rule-chip strong{color:var(--chalk);font-weight:500;}
 .rank-row-simples{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px;}
 .rank-row-simples:first-child{border-top:none;}
 .rank-pos{font-family:'JetBrains Mono',monospace;color:var(--muted-2);width:16px;}
@@ -411,6 +419,20 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
           <button class="btn full" onclick="salvarConfigTorneio()">Salvar configurações</button>
           <div id="config-msg"></div>
           <div class="msg aviso" style="margin-top:12px;">Se já gerou o calendário antes de mudar algo aqui, vá em <strong>Jogos → Gerar calendário</strong> de novo pra aplicar.</div>
+        </div>
+
+        <div class="painel" style="max-width:960px;margin-top:16px;">
+          <h3>Regras & disciplina — resumo rápido</h3>
+          <div class="rules-quick-grid">
+            <div class="rule-chip"><span class="ic">🧢</span><span>Só o <strong>capitão</strong> fala com o árbitro durante o jogo</span></div>
+            <div class="rule-chip"><span class="ic">🚫</span><span>Menos de <strong>5 atletas de linha</strong> no início → perde por <strong>WO</strong></span></div>
+            <div class="rule-chip"><span class="ic">🔄</span><span>Todo <strong>reserva</strong> precisa jogar ao menos <strong>1 tempo</strong></span></div>
+            <div class="rule-chip"><span class="ic">🟨🟨</span><span><strong>2 amarelos</strong> → suspensão automática de 1 jogo</span></div>
+            <div class="rule-chip"><span class="ic">🟥</span><span>Vermelho após o <strong>2º amarelo</strong> → suspensão de 1 jogo</span></div>
+            <div class="rule-chip"><span class="ic">🚷</span><span>Vermelho <strong>direto</strong> (agressão/indisciplina) → <strong>eliminado do torneio</strong></span></div>
+            <div class="rule-chip"><span class="ic">♻️</span><span>Cartões amarelos <strong>zeram</strong> ao fim da fase de grupos</span></div>
+            <div class="rule-chip"><span class="ic">⏳</span><span>Zeramento não perdoa <strong>suspensão já decidida</strong> — se pendente, é cumprida no 1º jogo seguinte do time</span></div>
+          </div>
         </div>
       </div>
 
@@ -995,18 +1017,55 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
     });
   }
 
+  html += `
+    <div class="divider"></div>
+    <h3>Regras & disciplina — resumo rápido</h3>
+    <div class="rules-quick-grid">
+      <div class="rule-chip"><span class="ic">🧢</span><span>Só o <strong>capitão</strong> fala com o árbitro durante o jogo</span></div>
+      <div class="rule-chip"><span class="ic">🚫</span><span>Menos de <strong>5 atletas de linha</strong> no início → perde por <strong>WO</strong></span></div>
+      <div class="rule-chip"><span class="ic">🔄</span><span>Todo <strong>reserva</strong> precisa jogar ao menos <strong>1 tempo</strong></span></div>
+      <div class="rule-chip"><span class="ic">🟨🟨</span><span><strong>2 amarelos</strong> → suspensão automática de 1 jogo</span></div>
+      <div class="rule-chip"><span class="ic">🟥</span><span>Vermelho após o <strong>2º amarelo</strong> → suspensão de 1 jogo</span></div>
+      <div class="rule-chip"><span class="ic">🚷</span><span>Vermelho <strong>direto</strong> (agressão/indisciplina) → <strong>eliminado do torneio</strong></span></div>
+      <div class="rule-chip"><span class="ic">♻️</span><span>Cartões amarelos <strong>zeram</strong> ao fim da fase de grupos</span></div>
+      <div class="rule-chip"><span class="ic">⏳</span><span>Zeramento não perdoa <strong>suspensão já decidida</strong> — se pendente, é cumprida no 1º jogo seguinte do time</span></div>
+    </div>
+  `;
+
   document.getElementById(containerId).innerHTML = html;
 }
+
+let editandoParticipanteId = null;
+const POSICOES_OPCOES = [
+  ['goleiro', 'Goleiro'], ['zagueiro', 'Zagueiro'], ['cabeca-de-area', 'Cabeça de Área'],
+  ['meio-campo', 'Meio de Campo'], ['lateral-esquerda', 'Lateral Esquerda'], ['lateral-direita', 'Lateral Direita'],
+  ['centroavante', 'Centroavante'],
+];
 
 async function carregarParticipantes() {
   const { data: participantes } = await supabaseClient
     .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
   const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome;
+  const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
 
   const container = document.getElementById('tabela-participantes');
   let html = '';
   (participantes || []).forEach((p) => {
+    if (p.id === editandoParticipanteId) {
+      const opcoesPosicao = POSICOES_OPCOES.map(([v, label]) => `<option value="${v}" ${p.posicao === v ? 'selected' : ''}>${label}</option>`).join('');
+      html += `
+        <div class="participante-linha participante-editando">
+          <input type="text" id="edit-nome-${p.id}" value="${p.nome}" placeholder="Nome" style="flex:1 1 140px;">
+          <input type="number" id="edit-idade-${p.id}" value="${p.idade ?? ''}" placeholder="Idade" style="width:70px;flex:0 0 70px;">
+          <input type="number" id="edit-nivel-${p.id}" value="${p.nivel_tecnico ?? ''}" min="1" max="5" placeholder="Nível" style="width:70px;flex:0 0 70px;">
+          ${usaPosicao ? `<select id="edit-posicao-${p.id}" style="flex:1 1 140px;">${opcoesPosicao}</select>` : ''}
+          <span class="btn small" style="cursor:pointer;" onclick="salvarEdicaoParticipante('${p.id}')">Salvar</span>
+          <span class="btn small secondary" style="cursor:pointer;" onclick="cancelarEdicaoParticipante()">Cancelar</span>
+        </div>`;
+      return;
+    }
+
     const timeCell = p.time_id
       ? `<span class="pill ativo">${nomeTime(p.time_id) || 'Sorteado'}</span>`
       : '<span class="pill pendente">Sem time</span>';
@@ -1022,11 +1081,56 @@ async function carregarParticipantes() {
       <div class="participante-linha">
         <span class="participante-nome">${p.nome}</span>
         <span class="participante-detalhe">${p.idade ?? '—'} anos · nível ${p.nivel_tecnico ?? '—'} · ${p.posicao ?? '—'}</span>
-        <span class="participante-badges">${timeCell}${disciplinaCell}</span>
+        <span class="participante-badges">${timeCell}${disciplinaCell}
+          <span class="editar-participante" onclick="iniciarEdicaoParticipante('${p.id}')" title="Editar">✎</span>
+          <span class="remover-evento" onclick="excluirParticipante('${p.id}', '${p.nome.replace(/'/g, "\\'")}')" title="Excluir">✕</span>
+        </span>
       </div>`;
   });
   container.innerHTML = html;
   return participantes || [];
+}
+
+function iniciarEdicaoParticipante(id) {
+  editandoParticipanteId = id;
+  carregarParticipantes();
+}
+
+function cancelarEdicaoParticipante() {
+  editandoParticipanteId = null;
+  carregarParticipantes();
+}
+
+async function salvarEdicaoParticipante(id) {
+  const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
+  const atualizacao = {
+    nome: document.getElementById(`edit-nome-${id}`).value.trim(),
+    idade: document.getElementById(`edit-idade-${id}`).value || null,
+    nivel_tecnico: document.getElementById(`edit-nivel-${id}`).value || null,
+  };
+  if (usaPosicao) atualizacao.posicao = document.getElementById(`edit-posicao-${id}`).value;
+
+  if (!atualizacao.nome) { mostrarMsg('participantes-msg', 'O nome não pode ficar vazio.', 'erro'); return; }
+
+  const { error } = await supabaseClient.from('participantes').update(atualizacao).eq('id', id);
+  if (error) { mostrarMsg('participantes-msg', error.message, 'erro'); return; }
+
+  editandoParticipanteId = null;
+  mostrarMsg('participantes-msg', 'Participante atualizado.', 'ok');
+  await carregarParticipantes();
+  await carregarTimesFormados();
+}
+
+async function excluirParticipante(id, nome) {
+  if (!confirm(`Excluir ${nome}? Isso remove ele do torneio e apaga qualquer gol/cartão registrado no nome dele.`)) return;
+
+  const { error } = await supabaseClient.from('participantes').delete().eq('id', id);
+  if (error) { mostrarMsg('participantes-msg', error.message, 'erro'); return; }
+
+  mostrarMsg('participantes-msg', 'Participante excluído.', 'ok');
+  await carregarParticipantes();
+  await carregarTimesFormados();
+  await carregarEstatisticas();
 }
 
 // Mostra os times já salvos com seus jogadores — recarrega sozinho ao abrir
