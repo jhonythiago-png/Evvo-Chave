@@ -921,7 +921,9 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   const { data: gruposCrus } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneio.id).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneio.id);
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
-  const { data: jogosMata } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+  const { data: jogosMataCrus } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+  const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
+  const jogosMata = (jogosMataCrus || []).sort((a, b) => ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase]);
 
   const timeInfo = (id) => (times || []).find((t) => t.id === id);
   const nomeComBandeira = (id) => {
@@ -1539,11 +1541,16 @@ function perdedor(jogo) {
 }
 
 async function carregarMataMata() {
-  const { data: jogos } = await supabaseClient
+  const { data: jogosCrus } = await supabaseClient
     .from('jogos')
     .select('*, time_a:time_a_id(nome), time_b:time_b_id(nome)')
     .eq('torneio_id', torneioAtualId)
     .in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+
+  // ordem de leitura fixa: semifinais primeiro, depois final, depois 3º lugar
+  // (sem isso, a lista vinha em ordem arbitrária do banco e confundia)
+  const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
+  const jogos = (jogosCrus || []).sort((a, b) => ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase]);
 
   const { participantes, eventos } = await buscarParticipantesEEventos();
 
