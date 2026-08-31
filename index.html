@@ -1036,9 +1036,12 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   const { data: jogosMataCrus } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
   const jogosMata = (jogosMataCrus || []).sort((a, b) => {
-    const diferencaFase = ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
-    if (diferencaFase !== 0) return diferencaFase;
-    return (a.horario_previsto || '').localeCompare(b.horario_previsto || ''); // dentro da mesma fase, por horário
+    // ordem principal: horário real (3º lugar joga antes da final, e a lista
+    // precisa refletir isso). Fase só entra como desempate se faltar horário.
+    const horarioA = a.horario_previsto || '';
+    const horarioB = b.horario_previsto || '';
+    if (horarioA !== horarioB) return horarioA.localeCompare(horarioB);
+    return ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
   });
 
   const timeInfo = (id) => (times || []).find((t) => t.id === id);
@@ -1869,13 +1872,14 @@ async function carregarMataMata() {
     .eq('torneio_id', torneioAtualId)
     .in('fase', ['semifinal', 'terceiro_lugar', 'final']);
 
-  // ordem de leitura fixa: semifinais primeiro, depois final, depois 3º lugar
-  // (sem isso, a lista vinha em ordem arbitrária do banco e confundia)
+  // ordem principal: horário real (3º lugar joga antes da final, e a lista
+  // precisa refletir isso). Fase só entra como desempate se faltar horário.
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
   const jogos = (jogosCrus || []).sort((a, b) => {
-    const diferencaFase = ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
-    if (diferencaFase !== 0) return diferencaFase;
-    return (a.horario_previsto || '').localeCompare(b.horario_previsto || ''); // dentro da mesma fase, por horário
+    const horarioA = a.horario_previsto || '';
+    const horarioB = b.horario_previsto || '';
+    if (horarioA !== horarioB) return horarioA.localeCompare(horarioB);
+    return ORDEM_FASE_MATAMATA[a.fase] - ORDEM_FASE_MATAMATA[b.fase];
   });
 
   const { participantes, eventos } = await buscarParticipantesEEventos();
@@ -1970,9 +1974,12 @@ async function avancarMataMataSeNecessario() {
   const vencedores = semis.map(ganhador);
   const perdedores = semis.map(perdedor);
 
+  // 3º lugar joga ANTES da final (padrão normal — a final fecha o dia como
+  // o jogo mais importante), por isso vem primeiro na lista pro motor de
+  // horário dar o slot mais cedo pra ele
   const confrontosAgendados = await agendarConfrontosMataMata([
-    { fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] },
     { fase: 'terceiro_lugar', time_a_id: perdedores[0], time_b_id: perdedores[1] },
+    { fase: 'final', time_a_id: vencedores[0], time_b_id: vencedores[1] },
   ]);
 
   for (const c of confrontosAgendados) {
