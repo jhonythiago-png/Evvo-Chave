@@ -159,7 +159,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .tab-mobile-item:active{background:var(--panel-2);}
 .rank-row-simples{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px;}
 .rank-row-simples:first-child{border-top:none;}
-.rank-pos{font-family:'JetBrains Mono',monospace;color:var(--muted-2);width:16px;}
+.rank-pos{font-family:'JetBrains Mono',monospace;color:var(--muted-2);width:24px;flex-shrink:0;text-align:center;}
 .rank-nome{flex:1;}
 .rank-time{color:var(--muted-2);font-size:12px;}
 .rank-qtd{font-family:'JetBrains Mono',monospace;font-weight:600;}
@@ -1157,6 +1157,52 @@ async function montarConteudoPublico(torneio) {
   }
   document.getElementById('pub-matamata').innerHTML = htmlMata || '<div class="msg aviso">Mata-mata ainda não começou.</div>';
 
+  // ---- colocação final dos times (campeão, vice, 3º, 4º, e o resto por desempenho de grupo) ----
+  function ganhadorPerdedorMataMata(j) {
+    let vencedorId = null;
+    if (j.gols_a > j.gols_b) vencedorId = j.time_a_id;
+    else if (j.gols_b > j.gols_a) vencedorId = j.time_b_id;
+    else if (j.penaltis_a != null) vencedorId = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
+    if (!vencedorId) return null;
+    return { vencedorId, perdedorId: vencedorId === j.time_a_id ? j.time_b_id : j.time_a_id };
+  }
+
+  let htmlColocacao = '';
+  const finalJogo = (jogosMata || []).find((j) => j.fase === 'final' && j.status === 'encerrado');
+  const resultadoFinal = finalJogo ? ganhadorPerdedorMataMata(finalJogo) : null;
+
+  if (resultadoFinal) {
+    const terceiroJogo = (jogosMata || []).find((j) => j.fase === 'terceiro_lugar' && j.status === 'encerrado');
+    const resultadoTerceiro = terceiroJogo ? ganhadorPerdedorMataMata(terceiroJogo) : null;
+
+    const top = [
+      { id: resultadoFinal.vencedorId, icone: '🏆' },
+      { id: resultadoFinal.perdedorId, icone: '🥈' },
+      resultadoTerceiro ? { id: resultadoTerceiro.vencedorId, icone: '🥉' } : null,
+      resultadoTerceiro ? { id: resultadoTerceiro.perdedorId, icone: '4º' } : null,
+    ].filter(Boolean);
+    const idsTop = top.map((t) => t.id);
+
+    // o resto: junta a classificação de todos os grupos, tira quem já está no
+    // top, e ordena globalmente pelos mesmos critérios (pontos, saldo, gols pró)
+    let resto = [];
+    grupos.forEach((g) => {
+      const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
+      const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
+      classificacao.forEach((t) => { if (!idsTop.includes(t.time_id)) resto.push(t); });
+    });
+    resto.sort((a, b) => b.pts - a.pts || b.sg - a.sg || b.gp - a.gp);
+
+    top.forEach((t) => {
+      htmlColocacao += `<div class="rank-row-simples"><span class="rank-pos">${t.icone}</span><span class="rank-nome">${nomeComBandeira(t.id)}</span></div>`;
+    });
+    resto.forEach((t, i) => {
+      htmlColocacao += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${t.nome}</span><span class="rank-time">${t.pts} pts</span></div>`;
+    });
+  } else {
+    htmlColocacao = '<div class="msg aviso">A colocação final sai assim que o mata-mata terminar. Enquanto isso, confira a classificação na aba Grupos.</div>';
+  }
+
   // ---- aba Estatísticas (artilharia e cartões) ----
   const nomeTimeDoJogador = (timeId) => timeInfo(timeId)?.nome || '—';
   const iniciaisPublico = (nome) => nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
@@ -1186,6 +1232,10 @@ async function montarConteudoPublico(torneio) {
     .map((r) => `<div class="rank-row-simples"><span class="rank-nome">${r.label} ${r.participante.nome}</span><span class="rank-time">${nomeTimeDoJogador(r.participante.time_id)}</span><span class="rank-qtd">${r.qtd}</span></div>`).join('');
 
   document.getElementById('pub-stats').innerHTML = `
+    <div class="painel" style="max-width:560px;margin-bottom:16px;">
+      <h3>Colocação final</h3>
+      ${htmlColocacao}
+    </div>
     <div class="two-col">
       <div class="painel"><h3>Artilharia</h3>${renderRankingPublico(artilheiros, 'var(--amber)')}</div>
       <div class="painel"><h3>Cartões</h3>${cartoesHtmlPub || '<div class="msg aviso">Nenhum cartão registrado ainda.</div>'}</div>
