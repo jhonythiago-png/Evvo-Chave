@@ -299,31 +299,28 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
     <div id="publica-cabecalho"></div>
 
     <div class="tabs" id="publica-tabs">
-      <div class="tab active" data-pubpane="pub-visao">Visão geral</div>
-      <div class="tab" data-pubpane="pub-grupos">Grupos</div>
+      <div class="tab active" data-pubpane="pub-grupos">Grupos</div>
       <div class="tab" data-pubpane="pub-jogos">Jogos</div>
       <div class="tab" data-pubpane="pub-matamata">Mata-mata</div>
-      <div class="tab" data-pubpane="pub-stats">Estatísticas</div>
+      <div class="tab" data-pubpane="pub-stats">Ranking dos times</div>
       <div class="tab" data-pubpane="pub-regras">Regras</div>
     </div>
 
     <div class="tabs-mobile-select">
       <button class="hamburger" onclick="alternarMenuPublico()" style="width:100%;justify-content:flex-start;gap:10px;padding:11px 14px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        <span id="publica-tab-atual" class="oswald" style="font-size:13px;color:var(--chalk);">Visão geral</span>
+        <span id="publica-tab-atual" class="oswald" style="font-size:13px;color:var(--chalk);">Grupos</span>
       </button>
       <div id="publica-menu-dropdown" class="hidden">
-        <div class="tab-mobile-item active" data-pubpane="pub-visao">Visão geral</div>
-        <div class="tab-mobile-item" data-pubpane="pub-grupos">Grupos</div>
+        <div class="tab-mobile-item active" data-pubpane="pub-grupos">Grupos</div>
         <div class="tab-mobile-item" data-pubpane="pub-jogos">Jogos</div>
         <div class="tab-mobile-item" data-pubpane="pub-matamata">Mata-mata</div>
-        <div class="tab-mobile-item" data-pubpane="pub-stats">Estatísticas</div>
+        <div class="tab-mobile-item" data-pubpane="pub-stats">Ranking dos times</div>
         <div class="tab-mobile-item" data-pubpane="pub-regras">Regras</div>
       </div>
     </div>
 
-    <div class="pane active" id="pub-visao"></div>
-    <div class="pane" id="pub-grupos"></div>
+    <div class="pane active" id="pub-grupos"></div>
     <div class="pane" id="pub-jogos"></div>
     <div class="pane" id="pub-matamata"></div>
     <div class="pane" id="pub-stats"></div>
@@ -1083,7 +1080,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).eq('fase', 'grupos').order('horario_previsto', { ascending: true });
   const { data: jogosMataCrus } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneio.id).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
   const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneio.id);
-  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneio.id);
+  const { data: participantes } = await supabaseClient.from('participantes_publico').select('id, nome, time_id').eq('torneio_id', torneio.id);
 
   const ORDEM_FASE_MATAMATA = { semifinal: 0, final: 1, terceiro_lugar: 2 };
   const jogosMata = (jogosMataCrus || []).sort((a, b) => {
@@ -1116,7 +1113,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
     <div class="tt-sub">Data: ${torneio.data_evento}</div>
   `;
 
-  // ---- aba Visão geral ----
+  // ---- cálculo do campeão (usado no banner da aba Mata-mata) ----
   let campeaoNome = null;
   const finalDecidida = (jogosMata || []).find((j) => j.fase === 'final' && j.status === 'encerrado');
   if (finalDecidida) {
@@ -1126,24 +1123,6 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
     else if (finalDecidida.penaltis_a != null) vencedorId = finalDecidida.penaltis_a > finalDecidida.penaltis_b ? finalDecidida.time_a_id : finalDecidida.time_b_id;
     if (vencedorId) campeaoNome = nomeComBandeira(vencedorId);
   }
-  const jogosDisputados = [...(jogosGrupos || []), ...(jogosMata || [])].filter((j) => j.status === 'encerrado').length;
-  document.getElementById('pub-visao').innerHTML = `
-    <div class="stat-grid" style="max-width:700px;">
-      <div class="stat-card"><div class="stat-num">${(times || []).length}</div><div class="stat-label">Times</div></div>
-      <div class="stat-card"><div class="stat-num">${jogosDisputados}</div><div class="stat-label">Jogos disputados</div></div>
-      <div class="stat-card"><div class="stat-num">${(participantes || []).length}</div><div class="stat-label">Jogadores</div></div>
-      <div class="stat-card"><div class="stat-num" style="font-size:16px;">${campeaoNome || '—'}</div><div class="stat-label">Campeão</div></div>
-    </div>
-    <div class="painel" style="max-width:560px;">
-      <h3>Informações</h3>
-      <div class="info-row"><span>Data</span><span>${torneio.data_evento}</span></div>
-      <div class="info-row"><span>Horário de início</span><span>${torneio.horario_inicio?.slice(0, 5) || '—'}</span></div>
-      <div class="info-row"><span>Intervalo</span><span>${torneio.intervalo_inicio ? torneio.intervalo_inicio.slice(0, 5) + ' às ' + (torneio.intervalo_fim?.slice(0, 5) || '') : '—'}</span></div>
-      <div class="info-row"><span>Campos disponíveis</span><span>${torneio.campos_disponiveis}</span></div>
-      <div class="info-row"><span>Pontuação</span><span>${torneio.pontos_vitoria} · ${torneio.pontos_empate} · ${torneio.pontos_derrota}</span></div>
-      <div class="info-row"><span>Status</span><span>${torneio.status}</span></div>
-    </div>
-  `;
 
   // ---- aba Grupos (classificação) ----
   let htmlGrupos = '';
@@ -1239,7 +1218,7 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   `;
 
   // reseta sempre pra primeira aba quando (re)carrega
-  trocarAbaPublica('pub-visao', 'Visão geral');
+  trocarAbaPublica('pub-grupos', 'Grupos');
 }
 
 function trocarAbaPublica(paneId, rotulo) {
