@@ -574,7 +574,11 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane" id="tab-stats">
-        <div class="two-col">
+        <div class="teams-grid">
+          <div class="painel">
+            <h3>Colocação final</h3>
+            <div id="stats-colocacao"></div>
+          </div>
           <div class="painel">
             <h3>Artilharia</h3>
             <div id="stats-artilharia"></div>
@@ -664,6 +668,63 @@ function avisoSuspensosHtml(jogadoresDoJogo, jogoId) {
 function bandeiraImg(nomeTime) {
   const codigo = window.Chave.BANDEIRA_POR_NOME[nomeTime];
   return codigo ? `<img src="https://flagcdn.com/24x18/${codigo}.png" alt="" style="width:18px;height:13px;border-radius:2px;vertical-align:middle;margin-right:4px;">` : '';
+}
+
+// Colocação final do torneio: campeão, vice, 3º, 4º (do mata-mata) + o resto
+// dos times ordenado globalmente pelo desempenho na fase de grupos. Busca os
+// próprios dados, então funciona igual chamada do admin ou da página pública.
+async function calcularHtmlColocacaoFinal(torneioId) {
+  const { data: gruposCrus } = await supabaseClient.from('grupos').select('*').eq('torneio_id', torneioId).order('nome', { ascending: true });
+  const { data: times } = await supabaseClient.from('times').select('*').eq('torneio_id', torneioId);
+  const { data: jogosGrupos } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioId).eq('fase', 'grupos');
+  const { data: jogosMata } = await supabaseClient.from('jogos').select('*').eq('torneio_id', torneioId).in('fase', ['semifinal', 'terceiro_lugar', 'final']);
+
+  const grupos = (gruposCrus || []).map((g) => ({ ...g, times: (times || []).filter((t) => t.grupo_id === g.id) }));
+  const timeInfo = (id) => (times || []).find((t) => t.id === id);
+  const nomeComBandeiraLocal = (id) => { const t = timeInfo(id); return t ? `${bandeiraImg(t.nome)}${t.nome}` : '—'; };
+
+  function ganhadorPerdedorMataMata(j) {
+    let vencedorId = null;
+    if (j.gols_a > j.gols_b) vencedorId = j.time_a_id;
+    else if (j.gols_b > j.gols_a) vencedorId = j.time_b_id;
+    else if (j.penaltis_a != null) vencedorId = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
+    if (!vencedorId) return null;
+    return { vencedorId, perdedorId: vencedorId === j.time_a_id ? j.time_b_id : j.time_a_id };
+  }
+
+  const finalJogo = (jogosMata || []).find((j) => j.fase === 'final' && j.status === 'encerrado');
+  const resultadoFinal = finalJogo ? ganhadorPerdedorMataMata(finalJogo) : null;
+  if (!resultadoFinal) {
+    return '<div class="msg aviso">A colocação final sai assim que o mata-mata terminar. Enquanto isso, confira a classificação na aba Grupos.</div>';
+  }
+
+  const terceiroJogo = (jogosMata || []).find((j) => j.fase === 'terceiro_lugar' && j.status === 'encerrado');
+  const resultadoTerceiro = terceiroJogo ? ganhadorPerdedorMataMata(terceiroJogo) : null;
+
+  const top = [
+    { id: resultadoFinal.vencedorId, icone: '🏆' },
+    { id: resultadoFinal.perdedorId, icone: '🥈' },
+    resultadoTerceiro ? { id: resultadoTerceiro.vencedorId, icone: '🥉' } : null,
+    resultadoTerceiro ? { id: resultadoTerceiro.perdedorId, icone: '4º' } : null,
+  ].filter(Boolean);
+  const idsTop = top.map((t) => t.id);
+
+  let resto = [];
+  grupos.forEach((g) => {
+    const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
+    const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
+    classificacao.forEach((t) => { if (!idsTop.includes(t.time_id)) resto.push(t); });
+  });
+  resto.sort((a, b) => b.pts - a.pts || b.sg - a.sg || b.gp - a.gp);
+
+  let html = '';
+  top.forEach((t) => {
+    html += `<div class="rank-row-simples"><span class="rank-pos">${t.icone}</span><span class="rank-nome">${nomeComBandeiraLocal(t.id)}</span></div>`;
+  });
+  resto.forEach((t, i) => {
+    html += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${t.nome}</span><span class="rank-time">${t.pts} pts</span></div>`;
+  });
+  return html;
 }
 
 function toggleDrawer() {
@@ -1157,51 +1218,8 @@ async function montarConteudoPublico(torneio) {
   }
   document.getElementById('pub-matamata').innerHTML = htmlMata || '<div class="msg aviso">Mata-mata ainda não começou.</div>';
 
-  // ---- colocação final dos times (campeão, vice, 3º, 4º, e o resto por desempenho de grupo) ----
-  function ganhadorPerdedorMataMata(j) {
-    let vencedorId = null;
-    if (j.gols_a > j.gols_b) vencedorId = j.time_a_id;
-    else if (j.gols_b > j.gols_a) vencedorId = j.time_b_id;
-    else if (j.penaltis_a != null) vencedorId = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
-    if (!vencedorId) return null;
-    return { vencedorId, perdedorId: vencedorId === j.time_a_id ? j.time_b_id : j.time_a_id };
-  }
-
-  let htmlColocacao = '';
-  const finalJogo = (jogosMata || []).find((j) => j.fase === 'final' && j.status === 'encerrado');
-  const resultadoFinal = finalJogo ? ganhadorPerdedorMataMata(finalJogo) : null;
-
-  if (resultadoFinal) {
-    const terceiroJogo = (jogosMata || []).find((j) => j.fase === 'terceiro_lugar' && j.status === 'encerrado');
-    const resultadoTerceiro = terceiroJogo ? ganhadorPerdedorMataMata(terceiroJogo) : null;
-
-    const top = [
-      { id: resultadoFinal.vencedorId, icone: '🏆' },
-      { id: resultadoFinal.perdedorId, icone: '🥈' },
-      resultadoTerceiro ? { id: resultadoTerceiro.vencedorId, icone: '🥉' } : null,
-      resultadoTerceiro ? { id: resultadoTerceiro.perdedorId, icone: '4º' } : null,
-    ].filter(Boolean);
-    const idsTop = top.map((t) => t.id);
-
-    // o resto: junta a classificação de todos os grupos, tira quem já está no
-    // top, e ordena globalmente pelos mesmos critérios (pontos, saldo, gols pró)
-    let resto = [];
-    grupos.forEach((g) => {
-      const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
-      const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
-      classificacao.forEach((t) => { if (!idsTop.includes(t.time_id)) resto.push(t); });
-    });
-    resto.sort((a, b) => b.pts - a.pts || b.sg - a.sg || b.gp - a.gp);
-
-    top.forEach((t) => {
-      htmlColocacao += `<div class="rank-row-simples"><span class="rank-pos">${t.icone}</span><span class="rank-nome">${nomeComBandeira(t.id)}</span></div>`;
-    });
-    resto.forEach((t, i) => {
-      htmlColocacao += `<div class="rank-row-simples"><span class="rank-pos">${5 + i}º</span><span class="rank-nome">${bandeiraImg(t.nome)}${t.nome}</span><span class="rank-time">${t.pts} pts</span></div>`;
-    });
-  } else {
-    htmlColocacao = '<div class="msg aviso">A colocação final sai assim que o mata-mata terminar. Enquanto isso, confira a classificação na aba Grupos.</div>';
-  }
+  // ---- colocação final dos times ----
+  const htmlColocacao = await calcularHtmlColocacaoFinal(torneio.id);
 
   // ---- aba Estatísticas (artilharia e cartões) ----
   const nomeTimeDoJogador = (timeId) => timeInfo(timeId)?.nome || '—';
@@ -2148,6 +2166,8 @@ async function avancarMataMataSeNecessario() {
 
 // ---------------- ESTATÍSTICAS (artilharia e cartões) ----------------
 async function carregarEstatisticas() {
+  document.getElementById('stats-colocacao').innerHTML = await calcularHtmlColocacaoFinal(torneioAtualId);
+
   const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneioAtualId);
   const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id, status').eq('torneio_id', torneioAtualId);
   const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
