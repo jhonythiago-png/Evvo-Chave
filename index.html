@@ -147,6 +147,16 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .rule-chip{display:flex;align-items:flex-start;gap:9px;background:var(--void);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--muted);line-height:1.4;}
 .rule-chip .ic{font-size:16px;flex-shrink:0;}
 .rule-chip strong{color:var(--chalk);font-weight:500;}
+.tabs-mobile-select{display:none;position:relative;margin-bottom:20px;}
+#publica-menu-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:15;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);overflow:hidden;
+}
+.tab-mobile-item{padding:12px 16px;font-size:13px;color:var(--muted);cursor:pointer;border-top:1px solid var(--line-soft);}
+.tab-mobile-item:first-child{border-top:none;}
+.tab-mobile-item.active{color:var(--amber);}
+.tab-mobile-item:active{background:var(--panel-2);}
 .rank-row-simples{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px;}
 .rank-row-simples:first-child{border-top:none;}
 .rank-pos{font-family:'JetBrains Mono',monospace;color:var(--muted-2);width:16px;}
@@ -198,6 +208,11 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
   table.standings, table{min-width:0;}
   .painel{padding:16px;}
+  .card.wide{max-width:100%;}
+  #tela-publica-view{padding:0;}
+  #tela-publica-view .card{padding:16px;}
+  #publica-tabs{display:none;}
+  .tabs-mobile-select{display:block !important;}
 }
 </style>
 </head>
@@ -290,6 +305,21 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       <div class="tab" data-pubpane="pub-matamata">Mata-mata</div>
       <div class="tab" data-pubpane="pub-stats">Estatísticas</div>
       <div class="tab" data-pubpane="pub-regras">Regras</div>
+    </div>
+
+    <div class="tabs-mobile-select">
+      <button class="hamburger" onclick="alternarMenuPublico()" style="width:100%;justify-content:flex-start;gap:10px;padding:11px 14px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <span id="publica-tab-atual" class="oswald" style="font-size:13px;color:var(--chalk);">Visão geral</span>
+      </button>
+      <div id="publica-menu-dropdown" class="hidden">
+        <div class="tab-mobile-item active" data-pubpane="pub-visao">Visão geral</div>
+        <div class="tab-mobile-item" data-pubpane="pub-grupos">Grupos</div>
+        <div class="tab-mobile-item" data-pubpane="pub-jogos">Jogos</div>
+        <div class="tab-mobile-item" data-pubpane="pub-matamata">Mata-mata</div>
+        <div class="tab-mobile-item" data-pubpane="pub-stats">Estatísticas</div>
+        <div class="tab-mobile-item" data-pubpane="pub-regras">Regras</div>
+      </div>
     </div>
 
     <div class="pane active" id="pub-visao"></div>
@@ -1209,17 +1239,24 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   `;
 
   // reseta sempre pra primeira aba quando (re)carrega
-  document.querySelectorAll('#publica-tabs .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
-  document.querySelectorAll('#tela-publica-view .pane').forEach((p, i) => p.classList.toggle('active', i === 0));
+  trocarAbaPublica('pub-visao', 'Visão geral');
 }
 
-document.querySelectorAll('#publica-tabs .tab').forEach((tab) => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('#publica-tabs .tab').forEach((t) => t.classList.remove('active'));
-    document.querySelectorAll('#tela-publica-view .pane').forEach((p) => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(tab.dataset.pubpane).classList.add('active');
-  });
+function trocarAbaPublica(paneId, rotulo) {
+  document.querySelectorAll('#publica-tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.pubpane === paneId));
+  document.querySelectorAll('.tab-mobile-item').forEach((t) => t.classList.toggle('active', t.dataset.pubpane === paneId));
+  document.querySelectorAll('#tela-publica-view .pane').forEach((p) => p.classList.toggle('active', p.id === paneId));
+  const rotuloEl = document.getElementById('publica-tab-atual');
+  if (rotuloEl && rotulo) rotuloEl.textContent = rotulo;
+  document.getElementById('publica-menu-dropdown').classList.add('hidden');
+}
+
+function alternarMenuPublico() {
+  document.getElementById('publica-menu-dropdown').classList.toggle('hidden');
+}
+
+document.querySelectorAll('#publica-tabs .tab, .tab-mobile-item').forEach((tab) => {
+  tab.addEventListener('click', () => trocarAbaPublica(tab.dataset.pubpane, tab.textContent.trim()));
 });
 
 let editandoParticipanteId = null;
