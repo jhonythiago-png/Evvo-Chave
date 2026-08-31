@@ -1023,13 +1023,15 @@ async function montarConteudoPublico(torneio, containerId = 'publica-conteudo') 
   html += '<h3>Classificação</h3>';
   grupos.forEach((g) => {
     const jogosDoGrupo = (jogosGrupos || []).filter((j) => j.grupo_id === g.id && j.status === 'encerrado');
-    const { classificacao } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
+    const { classificacao, avisos } = window.Chave.calcularClassificacao(jogosDoGrupo, g.times, {});
     html += `<div class="grupo-box"><h3>${g.nome}</h3><table class="mono" style="font-size:12px;width:100%;">
       <tr style="color:var(--muted-2);"><td>Time</td><td>PJ</td><td>V</td><td>E</td><td>D</td><td>SG</td><td>Pts</td></tr>`;
     classificacao.forEach((t) => {
       html += `<tr><td>${bandeiraImg(t.nome)}${t.nome}</td><td>${t.pj}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.sg >= 0 ? '+' : ''}${t.sg}</td><td>${t.pts}</td></tr>`;
     });
-    html += '</table></div>';
+    html += '</table>';
+    (avisos || []).forEach((a) => { html += `<div class="msg aviso" style="margin-top:10px;">${a.mensagem}</div>`; });
+    html += '</div>';
   });
 
   html += '<div class="divider"></div><h3>Jogos</h3>';
