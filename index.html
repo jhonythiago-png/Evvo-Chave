@@ -1535,9 +1535,41 @@ async function registrarEvento(jogoId) {
   await carregarParticipantes();
 }
 
+// Recalcula o status do jogador DO ZERO a partir dos eventos que existem
+// agora (ao contrário de avaliarDisciplina, que só escala pra cima, esta
+// pode REBAIXAR — usada quando um cartão é removido/corrigido, já que nesse
+// caso "nunca aconteceu de verdade", diferente de uma suspensão sendo servida).
+async function recalcularDisciplinaCompleta(participanteId) {
+  const { data: eventosDoJogador } = await supabaseClient.from('eventos_partida').select('jogo_id, tipo').eq('participante_id', participanteId);
+  const jogoIds = [...new Set((eventosDoJogador || []).map((e) => e.jogo_id))];
+  const { data: jogosRelacionados } = jogoIds.length
+    ? await supabaseClient.from('jogos').select('id, fase').in('id', jogoIds)
+    : { data: [] };
+  const faseDoJogo = (id) => (jogosRelacionados || []).find((j) => j.id === id)?.fase;
+
+  const temEventoMataMata = (eventosDoJogador || []).some((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === 'mata_mata');
+  const grupoRelevante = temEventoMataMata ? 'mata_mata' : 'grupos';
+  const eventosRelevantes = (eventosDoJogador || []).filter((e) => grupoDeFase(faseDoJogo(e.jogo_id)) === grupoRelevante);
+
+  const amarelos = eventosRelevantes.filter((e) => e.tipo === 'cartao_amarelo').length;
+  const vermelhos = eventosRelevantes.filter((e) => e.tipo === 'cartao_vermelho').length;
+
+  let novoStatus = 'ativo';
+  if (vermelhos >= 1 && amarelos < 2) novoStatus = 'eliminado';
+  else if (amarelos >= 2 || vermelhos >= 1) novoStatus = 'suspenso';
+
+  const atualizacao = { status: novoStatus };
+  if (novoStatus !== 'suspenso') atualizacao.suspenso_ate_jogo_id = null;
+  await supabaseClient.from('participantes').update(atualizacao).eq('id', participanteId);
+}
+
 async function removerEvento(eventoId) {
   const { data: evento } = await supabaseClient.from('eventos_partida').select('participante_id, tipo').eq('id', eventoId).single();
   await supabaseClient.from('eventos_partida').delete().eq('id', eventoId);
+
+  if (evento && (evento.tipo === 'cartao_amarelo' || evento.tipo === 'cartao_vermelho')) {
+    await recalcularDisciplinaCompleta(evento.participante_id);
+  }
 
   await carregarJogosEClassificacao();
   await carregarMataMata();
