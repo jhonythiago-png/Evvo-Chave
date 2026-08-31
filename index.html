@@ -153,6 +153,14 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 .rank-nome{flex:1;}
 .rank-time{color:var(--muted-2);font-size:12px;}
 .rank-qtd{font-family:'JetBrains Mono',monospace;font-weight:600;}
+.rank-avatar{width:28px;height:28px;border-radius:50%;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--muted);flex-shrink:0;}
+.disc-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft);font-size:13px;}
+.disc-row:first-child{border-top:none;}
+.disc-cards{font-size:12px;color:var(--muted);white-space:nowrap;}
+.disc-tag{font-size:10px;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.03em;margin-left:auto;white-space:nowrap;}
+.disc-tag.susp{background:rgba(255,182,39,0.14);color:var(--amber);}
+.disc-tag.elim{background:rgba(226,87,76,0.14);color:var(--red);}
+.rank-info{flex:1;min-width:0;}
 .participante-linha{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:9px 0;border-top:1px solid var(--line-soft);font-size:13px;}
 .participante-linha:first-child{border-top:none;}
 .participante-nome{flex:1 1 140px;min-width:0;}
@@ -356,6 +364,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       </div>
 
       <div class="pane active" id="tab-visao">
+        <div class="stat-grid" id="visao-stat-grid" style="max-width:960px;"></div>
+
         <div class="painel" style="max-width:960px;">
           <h3>Configurações do torneio</h3>
 
@@ -527,6 +537,11 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
             <h3>Cartões</h3>
             <div id="stats-cartoes"></div>
           </div>
+        </div>
+        <div class="painel" style="margin-top:16px;">
+          <h3>Disciplina — status automático</h3>
+          <div style="margin-bottom:6px;color:var(--muted);font-size:12px;">Calculado pelo sistema a partir dos cartões lançados — sem precisar apurar manualmente.</div>
+          <div id="stats-disciplina"></div>
         </div>
       </div>
 
@@ -849,6 +864,31 @@ async function carregarInfoTorneio() {
   document.getElementById('cfg-pts-derrota').value = t.pontos_derrota ?? 0;
 
   await carregarConfigPublico(t);
+  await carregarStatGridVisaoGeral();
+}
+
+async function carregarStatGridVisaoGeral() {
+  const { count: totalTimes } = await supabaseClient.from('times').select('id', { count: 'exact', head: true }).eq('torneio_id', torneioAtualId);
+  const { count: totalJogadores } = await supabaseClient.from('participantes').select('id', { count: 'exact', head: true }).eq('torneio_id', torneioAtualId);
+  const { count: jogosDisputados } = await supabaseClient.from('jogos').select('id', { count: 'exact', head: true }).eq('torneio_id', torneioAtualId).eq('status', 'encerrado');
+
+  const { data: finalDecidida } = await supabaseClient.from('jogos').select('*, time_a:time_a_id(nome), time_b:time_b_id(nome)').eq('torneio_id', torneioAtualId).eq('fase', 'final').eq('status', 'encerrado');
+  let campeao = '—';
+  if (finalDecidida && finalDecidida[0]) {
+    const j = finalDecidida[0];
+    let vencedorId = null;
+    if (j.gols_a > j.gols_b) vencedorId = j.time_a_id;
+    else if (j.gols_b > j.gols_a) vencedorId = j.time_b_id;
+    else if (j.penaltis_a != null) vencedorId = j.penaltis_a > j.penaltis_b ? j.time_a_id : j.time_b_id;
+    if (vencedorId) campeao = vencedorId === j.time_a_id ? j.time_a?.nome : j.time_b?.nome;
+  }
+
+  document.getElementById('visao-stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalTimes ?? 0}</div><div class="stat-label">Times</div></div>
+    <div class="stat-card"><div class="stat-num">${jogosDisputados ?? 0}</div><div class="stat-label">Jogos disputados</div></div>
+    <div class="stat-card"><div class="stat-num">${totalJogadores ?? 0}</div><div class="stat-label">Jogadores</div></div>
+    <div class="stat-card"><div class="stat-num" style="font-size:16px;">${campeao}</div><div class="stat-label">Campeão</div></div>
+  `;
 }
 
 async function salvarConfigTorneio() {
@@ -1781,11 +1821,14 @@ async function lancarPlacarMataMata(jogoId) {
   const penaltisB = penBInput && penBInput.value !== '' ? parseInt(penBInput.value, 10) : null;
 
   if (golsA === golsB && (penaltisA == null || penaltisB == null)) {
+    // salva o placar empatado de verdade (sem os pênaltis ainda) — sem isso,
+    // a tela recarregava achando que o jogo nem tinha sido jogado, e os
+    // campos de pênaltis nunca apareciam
+    const { error: erroEmpate } = await supabaseClient.from('jogos').update({ gols_a: golsA, gols_b: golsB, status: 'encerrado' }).eq('id', jogoId);
+    if (erroEmpate) { mostrarMsg('matamata-msg', erroEmpate.message, 'erro'); return; }
+    await liberarSuspensosPorJogo(jogoId);
     mostrarMsg('matamata-msg', 'Empatou — preencha o placar dos pênaltis pra decidir quem avança.', 'aviso');
     await carregarMataMata();
-    // reabre os campos já preenchidos com o placar normal, mostrando os campos de pênaltis
-    document.getElementById(`gols-a-${jogoId}`).value = golsA;
-    document.getElementById(`gols-b-${jogoId}`).value = golsB;
     return;
   }
 
@@ -1833,7 +1876,7 @@ async function avancarMataMataSeNecessario() {
 // ---------------- ESTATÍSTICAS (artilharia e cartões) ----------------
 async function carregarEstatisticas() {
   const { data: eventos } = await supabaseClient.from('eventos_partida').select('*').eq('torneio_id', torneioAtualId);
-  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id').eq('torneio_id', torneioAtualId);
+  const { data: participantes } = await supabaseClient.from('participantes').select('id, nome, time_id, status').eq('torneio_id', torneioAtualId);
   const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
 
   const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome || '—';
@@ -1848,11 +1891,14 @@ async function carregarEstatisticas() {
       .sort((a, b) => b.qtd - a.qtd);
   };
 
+  const iniciais = (nome) => nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+
   const renderRanking = (lista, corValor) => {
     if (lista.length === 0) return '<div class="msg aviso">Nenhum registro ainda.</div>';
     return lista.map((r, i) => `
       <div class="rank-row-simples">
         <span class="rank-pos">${i + 1}</span>
+        <span class="rank-avatar">${iniciais(r.participante.nome)}</span>
         <span class="rank-nome">${r.participante.nome}</span>
         <span class="rank-time">${nomeTime(r.participante.time_id)}</span>
         <span class="rank-qtd" style="color:${corValor};">${r.qtd}</span>
@@ -1874,6 +1920,27 @@ async function carregarEstatisticas() {
       </div>
     `).join('');
   document.getElementById('stats-cartoes').innerHTML = cartoesHtml || '<div class="msg aviso">Nenhum cartão registrado ainda.</div>';
+
+  // Disciplina — status automático: só quem tem status diferente de ativo
+  const disciplinados = (participantes || []).filter((p) => p.status === 'suspenso' || p.status === 'eliminado');
+  let discHtml = '';
+  disciplinados.forEach((p) => {
+    const amarelosDoJogador = (eventos || []).filter((e) => e.participante_id === p.id && e.tipo === 'cartao_amarelo').length;
+    const vermelhoDoJogador = (eventos || []).some((e) => e.participante_id === p.id && e.tipo === 'cartao_vermelho');
+    let cardsTexto = '🟨'.repeat(Math.min(amarelosDoJogador, 2));
+    if (vermelhoDoJogador) cardsTexto += '🟥';
+    const tag = p.status === 'suspenso'
+      ? '<span class="disc-tag susp">Suspenso · próximo jogo</span>'
+      : '<span class="disc-tag elim">Eliminado do torneio</span>';
+    discHtml += `
+      <div class="disc-row">
+        <span class="rank-avatar">${iniciais(p.nome)}</span>
+        <div class="rank-info"><div class="rank-nome">${p.nome}</div><div class="rank-time">${nomeTime(p.time_id)}</div></div>
+        <span class="disc-cards">${cardsTexto}</span>
+        ${tag}
+      </div>`;
+  });
+  document.getElementById('stats-disciplina').innerHTML = discHtml || '<div class="msg aviso">Ninguém suspenso ou eliminado no momento.</div>';
 }
 
 document.querySelectorAll('#pane-torneio .tab').forEach((tab) => {
