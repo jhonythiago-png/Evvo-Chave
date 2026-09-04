@@ -119,7 +119,8 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
 
 .team-mini{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
 .team-mini-head{display:flex;justify-content:space-between;font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line);}
-.team-mini-player{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--muted);}
+.team-mini-player{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:12px;padding:4px 0;color:var(--muted);}
+.mover-time-select{font-size:10px;padding:3px 5px;background:var(--void);border:1px solid var(--line);border-radius:4px;color:var(--muted);max-width:110px;flex-shrink:0;}
 .teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:10px;}
 .grupo-box{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
 .grupo-box h3{margin-bottom:8px;}
@@ -1579,11 +1580,50 @@ async function carregarTimesFormados() {
     const nivelMedio = jogadoresDoTime.length ? (somaNivel / jogadoresDoTime.length).toFixed(1) : '—';
     const cor = t.cor || '#7E9488';
     html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome, cor)}${escaparHtml(t.nome)}</span><span>${jogadoresDoTime.length} jogador(es) · nível méd. ${nivelMedio}</span></div>`;
-    jogadoresDoTime.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
+    const opcoesOutrosTimes = times.filter((t2) => t2.id !== t.id).map((t2) => `<option value="${t2.id}">${escaparHtml(t2.nome)}</option>`).join('');
+    jogadoresDoTime.forEach((j) => {
+      html += `<div class="team-mini-player">
+        <span>${escaparHtml(j.nome)}</span>
+        <span>${j.posicao || ''}</span>
+        <select class="mover-time-select" onchange="moverParticipanteDeTime('${j.id}', this.value)">
+          <option value="">Mover para...</option>
+          ${opcoesOutrosTimes}
+          <option value="__remover__">Tirar do time</option>
+        </select>
+      </div>`;
+    });
     html += '</div>';
   });
+
+  const semTime = (participantes || []).filter((p) => !p.time_id);
+  if (semTime.length > 0) {
+    const opcoesTimes = times.map((t2) => `<option value="${t2.id}">${escaparHtml(t2.nome)}</option>`).join('');
+    html += `<div class="team-mini" style="border-left:4px solid var(--amber);">
+      <div class="team-mini-head"><span style="color:var(--amber);">⚠ Sem time</span><span>${semTime.length} jogador(es)</span></div>`;
+    semTime.forEach((j) => {
+      html += `<div class="team-mini-player">
+        <span>${escaparHtml(j.nome)}</span>
+        <span>${j.posicao || ''}</span>
+        <select class="mover-time-select" onchange="moverParticipanteDeTime('${j.id}', this.value)">
+          <option value="">Colocar em...</option>
+          ${opcoesTimes}
+        </select>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
   html += '</div>';
   div.innerHTML = html;
+}
+
+async function moverParticipanteDeTime(participanteId, novoTimeId) {
+  if (!novoTimeId) return;
+  const valor = novoTimeId === '__remover__' ? null : novoTimeId;
+  const { error } = await supabaseClient.from('participantes').update({ time_id: valor }).eq('id', participanteId);
+  if (error) { alert('Erro ao mover participante: ' + error.message); return; }
+  await carregarTimesFormados();
+  await carregarParticipantes();
 }
 
 async function adicionarParticipante() {
@@ -1650,7 +1690,7 @@ async function rodarSorteio() {
     const jogadoresOrdenados = [...t.jogadores].sort((a, b) => ORDEM_POSICOES_EXIBICAO.indexOf(a.posicao) - ORDEM_POSICOES_EXIBICAO.indexOf(b.posicao));
     const cor = t.cor || '#7E9488';
     html += `<div class="team-mini" style="border-left:4px solid ${cor};"><div class="team-mini-head"><span style="color:${cor};">${bandeiraImg(t.nome, cor)}${escaparHtml(t.nome)}</span><span>nível méd. ${t.nivelMedio}</span></div>`;
-    jogadoresOrdenados.forEach((j) => { html += `<div class="team-mini-player"><span>${j.nome}</span><span>${j.posicao || ''}</span></div>`; });
+    jogadoresOrdenados.forEach((j) => { html += `<div class="team-mini-player"><span>${escaparHtml(j.nome)}</span><span>${j.posicao || ''}</span></div>`; });
     html += '</div>';
   });
   html += '</div><button class="btn full" onclick="salvarSorteio()">Salvar sorteio</button>';
