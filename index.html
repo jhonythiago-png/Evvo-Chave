@@ -487,6 +487,12 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
         </div>
 
         <div class="painel" style="margin-top:16px;border-color:var(--amber-dim);">
+          <h3 style="color:var(--amber);">Reiniciar torneio</h3>
+          <div class="msg aviso" style="margin-bottom:12px;">Apaga times, grupos, jogos, placares e estatísticas — mas <strong>mantém os participantes cadastrados</strong>, prontos pra sortear de novo. Útil pra testar o sistema sem perder a lista de inscritos.</div>
+          <button class="btn full secondary" onclick="reiniciarTorneio()">Reiniciar (mantém participantes)</button>
+        </div>
+
+        <div class="painel" style="margin-top:16px;border-color:var(--amber-dim);">
           <h3 style="color:var(--red);">Zona de risco</h3>
           <div class="msg aviso" style="margin-bottom:12px;">Excluir o torneio apaga <strong>tudo</strong>: participantes, times, grupos, jogos e estatísticas. Não tem como desfazer.</div>
           <button class="btn full" style="background:var(--red);" onclick="excluirTorneio()">Excluir este torneio</button>
@@ -510,9 +516,7 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
       <div class="pane" id="tab-sorteio">
         <div class="two-col">
           <div class="painel">
-            <h3>Participantes</h3>
-            <div id="tabela-participantes"></div>
-            <div class="divider"></div>
+            <h3>Novo participante</h3>
             <label>Nome</label>
             <input type="text" id="part-nome" placeholder="Nome do participante">
             <label>Idade</label>
@@ -531,6 +535,14 @@ td{padding:9px 8px;border-top:1px solid var(--line-soft);}
             </select>
             <button class="btn full" onclick="adicionarParticipante()">Adicionar participante</button>
             <div id="participantes-msg"></div>
+
+            <div class="divider"></div>
+            <div class="top-row" style="margin-bottom:8px;">
+              <h3 style="margin:0;">Participantes</h3>
+              <span id="contador-participantes" style="font-size:12px;color:var(--muted-2);"></span>
+            </div>
+            <input type="text" id="busca-participante" placeholder="Buscar por nome ou posição..." oninput="filtrarParticipantes()" style="margin-bottom:10px;">
+            <div id="tabela-participantes"></div>
           </div>
           <div class="painel">
             <h3>Sortear tudo (times + grupos + calendário)</h3>
@@ -1146,6 +1158,34 @@ async function excluirTorneio() {
   mostrarEstadoPrincipal('vazio');
 }
 
+async function reiniciarTorneio() {
+  const { data: t } = await supabaseClient.from('torneios').select('nome').eq('id', torneioAtualId).single();
+  const confirmado = confirm(`Reiniciar "${t?.nome}"?\n\nIsso apaga times, grupos, jogos, placares e estatísticas — mas os participantes cadastrados continuam intactos, prontos pra sortear de novo.\n\nContinuar?`);
+  if (!confirmado) return;
+
+  // ordem importa: jogos primeiro (times/grupos são referenciados por jogos,
+  // apagar na ordem errada dá erro de chave estrangeira). eventos_partida
+  // some sozinho junto com os jogos (cascade).
+  const { error: erroJogos } = await supabaseClient.from('jogos').delete().eq('torneio_id', torneioAtualId);
+  if (erroJogos) { alert('Erro ao apagar jogos: ' + erroJogos.message); return; }
+
+  const { error: erroTimes } = await supabaseClient.from('times').delete().eq('torneio_id', torneioAtualId);
+  if (erroTimes) { alert('Erro ao apagar times: ' + erroTimes.message); return; }
+
+  const { error: erroGrupos } = await supabaseClient.from('grupos').delete().eq('torneio_id', torneioAtualId);
+  if (erroGrupos) { alert('Erro ao apagar grupos: ' + erroGrupos.message); return; }
+
+  // participantes continuam, só voltam pro estado "sem time, sem disciplina pendente"
+  const { error: erroReset } = await supabaseClient.from('participantes')
+    .update({ time_id: null, status: 'ativo', suspenso_ate_jogo_id: null })
+    .eq('torneio_id', torneioAtualId);
+  if (erroReset) { alert('Erro ao resetar participantes: ' + erroReset.message); return; }
+
+  alert('Torneio reiniciado. Os participantes continuam cadastrados — pode sortear de novo quando quiser.');
+  const { data: torneioAtualizado } = await supabaseClient.from('torneios').select('nome, esporte, status').eq('id', torneioAtualId).single();
+  await abrirTorneio(torneioAtualId, torneioAtualizado.nome, torneioAtualizado.esporte, torneioAtualizado.status);
+}
+
 function slugSugerido(nome) {
   return nome.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1393,16 +1433,49 @@ const POSICOES_OPCOES = [
   ['centroavante', 'Centroavante'],
 ];
 
+let ultimosParticipantesCarregados = [];
+let ultimosTimesCarregados = [];
+
 async function carregarParticipantes() {
   const { data: participantes } = await supabaseClient
     .from('participantes').select('*').eq('torneio_id', torneioAtualId).order('nome', { ascending: true });
   const { data: times } = await supabaseClient.from('times').select('id, nome').eq('torneio_id', torneioAtualId);
+
+  ultimosParticipantesCarregados = participantes || [];
+  ultimosTimesCarregados = times || [];
+
+  renderizarTabelaParticipantes(ultimosParticipantesCarregados);
+  return ultimosParticipantesCarregados;
+}
+
+function filtrarParticipantes() {
+  const termo = document.getElementById('busca-participante').value.trim().toLowerCase();
+  if (!termo) { renderizarTabelaParticipantes(ultimosParticipantesCarregados); return; }
+
+  const labelDaPosicao = (valor) => (POSICOES_OPCOES.find(([v]) => v === valor)?.[1] || '').toLowerCase();
+  const filtrados = ultimosParticipantesCarregados.filter((p) =>
+    (p.nome || '').toLowerCase().includes(termo) ||
+    (p.posicao || '').toLowerCase().includes(termo) ||
+    labelDaPosicao(p.posicao).includes(termo)
+  );
+  renderizarTabelaParticipantes(filtrados);
+}
+
+function renderizarTabelaParticipantes(lista) {
+  const times = ultimosTimesCarregados;
   const nomeTime = (id) => (times || []).find((t) => t.id === id)?.nome;
   const usaPosicao = ESPORTES_COM_POSICAO.includes(torneioAtualEsporte);
 
+  const contadorEl = document.getElementById('contador-participantes');
+  if (contadorEl) {
+    contadorEl.textContent = lista.length === ultimosParticipantesCarregados.length
+      ? `${lista.length} no total`
+      : `${lista.length} de ${ultimosParticipantesCarregados.length}`;
+  }
+
   const container = document.getElementById('tabela-participantes');
   let html = '';
-  (participantes || []).forEach((p) => {
+  lista.forEach((p) => {
     if (p.id === editandoParticipanteId) {
       const opcoesPosicao = POSICOES_OPCOES.map(([v, label]) => `<option value="${v}" ${p.posicao === v ? 'selected' : ''}>${label}</option>`).join('');
       html += `
@@ -1438,8 +1511,7 @@ async function carregarParticipantes() {
         </span>
       </div>`;
   });
-  container.innerHTML = html;
-  return participantes || [];
+  container.innerHTML = html || '<div class="msg aviso">Nenhum participante encontrado.</div>';
 }
 
 function iniciarEdicaoParticipante(id) {
