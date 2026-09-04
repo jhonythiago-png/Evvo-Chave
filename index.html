@@ -2172,10 +2172,9 @@ async function carregarMataMata() {
         <span class="time-nome direita">${bandeiraImg(j.time_b?.nome, j.time_b?.cor)}${escaparHtml(j.time_b?.nome)}</span>
       </div>
       ${empatado || j.penaltis_a != null ? `
-      <div class="confronto" style="margin-top:8px;">
-        <span class="time-nome" style="color:var(--amber);font-size:11px;">Pênaltis</span>
+      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;">
+        <span style="color:var(--amber);font-size:11px;">Pênaltis</span>
         <span class="placar"><input type="number" min="0" id="pen-a-${j.id}" value="${j.penaltis_a ?? ''}" placeholder="0"><span>x</span><input type="number" min="0" id="pen-b-${j.id}" value="${j.penaltis_b ?? ''}" placeholder="0"></span>
-        <span></span>
       </div>` : ''}
       ${avisoSuspensosHtml(jogadoresDoJogo, j.id)}
       <button class="btn secondary salvar-btn" onclick="lancarPlacarMataMata('${j.id}')">Salvar placar</button>
